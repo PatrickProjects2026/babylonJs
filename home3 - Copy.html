@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Three.js Street Racing Experience</title>
+<style>
+  body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: monospace; color: #fff; }
+  #webglContainer { width: 100%; height: 100%; display: block; }
+  #hud { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8); padding: 15px; border: 1px solid #ff6a1a; border-radius: 5px; z-index: 10; }
+  #err { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #500; color: #fff; padding: 20px; border: 2px solid #f00; display: none; z-index: 100; text-align: center; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <h2>Street Racing (Three.js)</h2>
+  <div>Speed: <span id="speed">0</span> KM/H</div>
+  <div style="font-size:10px; color:#aaa; margin-top:5px;">Use Arrow Keys / WASD to drive</div>
+</div>
+
+<div id="err">
+  <h3>Car Load Error</h3>
+  <p id="err-text"></p>
+</div>
+
+<div id="webglContainer"></div>
+
+<!-- Three.js and GLTFLoader CDNs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<script>
+let scene, camera, renderer, carGroup;
+let speed = 0;
+const inputMap = {};
+
+init();
+
+async function init() {
+  // 1. Scene, Camera, Renderer
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1a1a24);
+
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+  
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  document.getElementById("webglContainer").appendChild(renderer.domElement);
+
+  // 2. Lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+  scene.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  dirLight.position.set(20, 40, 20);
+  dirLight.castShadow = true;
+  scene.add(dirLight);
+
+  // 3. Build Custom Race Street
+  const groundGeo = new THREE.PlaneGeometry(200, 500);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x222622 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const roadGeo = new THREE.BoxGeometry(12, 0.1, 500);
+  const roadMat = new THREE.MeshStandardMaterial({ color: 0x303035 });
+  const road = new THREE.Mesh(roadGeo, roadMat);
+  road.position.y = 0.05;
+  road.receiveShadow = true;
+  scene.add(road);
+
+  const stripeMat = new THREE.MeshBasicMaterial({ color: 0xe6db74 });
+  for (let z = -240; z <= 240; z += 15) {
+    const stripeGeo = new THREE.BoxGeometry(0.3, 0.12, 4);
+    const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+    stripe.position.set(0, 0.08, z);
+    scene.add(stripe);
+  }
+
+  // 4. Load Config and Car GLB with Bounding Normalization
+  carGroup = new THREE.Group();
+  scene.add(carGroup);
+
+  try {
+    const configRes = await fetch("car_config.json");
+    const config = await configRes.json();
+    
+    const loader = new THREE.GLTFLoader();
+    loader.load(config.carFile, (gltf) => {
+      const model = gltf.scene;
+
+      // Compute bounding box to normalize scale automatically
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const maxDim = Math.max(size.x, size.y, size.z);
+      
+      console.log("Original Model Dimensions:", size);
+
+      // If exported in centimeters or weird units, scale it to ~4.5 meters length
+      let autoScale = 1.0;
+      if (maxDim > 10 || maxDim < 0.5) {
+        autoScale = 4.5 / maxDim;
+      }
+
+      const jsonConfigScale = config.scale || 1.0;
+      const finalScale = jsonConfigScale * autoScale;
+      model.scale.set(finalScale, finalScale, finalScale);
+
+      // Center model origin to its bottom center
+      box.setFromObject(model);
+      model.position.y = -box.min.y; // Sit right on the ground surface
+
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          if (child.material) {
+            child.material.side = THREE.DoubleSide;
+          }
+        }
+      });
+
+      carGroup.add(model);
+      carGroup.position.set(0, 0.1, -30);
+      console.log("Car normalized, scaled, and positioned on the road successfully!");
+
+    }, undefined, (error) => {
+      console.error(error);
+      showError("GLTF Loader failed: " + error.message);
+    });
+
+  } catch (err) {
+    console.error(err);
+    showError("Could not read configuration: " + err.message);
+  }
+
+  // 5. Controls & Loop
+  window.addEventListener("keydown", (e) => inputMap[e.key] = true);
+  window.addEventListener("keyup", (e) => inputMap[e.key] = false);
+  window.addEventListener("resize", onWindowResize);
+
+  animate();
+}
+
+function showError(msg) {
+  const errBox = document.getElementById("err");
+  document.getElementById("err-text").textContent = msg;
+  errBox.style.display = "block";
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (inputMap["ArrowUp"] || inputMap["w"] || inputMap["W"]) speed = Math.min(speed + 0.003, 0.3);
+  else if (inputMap["ArrowDown"] || inputMap["s"] || inputMap["S"]) speed = Math.max(speed - 0.003, -0.1);
+  else speed *= 0.94;
+
+  if (Math.abs(speed) > 0.001) {
+    if (inputMap["ArrowLeft"] || inputMap["a"] || inputMap["A"]) carGroup.rotation.y += 0.025 * Math.sign(speed);
+    if (inputMap["ArrowRight"] || inputMap["d"] || inputMap["D"]) carGroup.rotation.y -= 0.025 * Math.sign(speed);
+  }
+
+  carGroup.position.x += Math.sin(carGroup.rotation.y) * speed;
+  carGroup.position.z += Math.cos(carGroup.rotation.y) * speed;
+
+  // Chase Camera
+  const offset = new THREE.Vector3(
+    -Math.sin(carGroup.rotation.y) * 7,
+    3,
+    -Math.cos(carGroup.rotation.y) * 7
+  );
+  camera.position.copy(carGroup.position).add(offset);
+  camera.lookAt(carGroup.position.clone().add(new THREE.Vector3(0, 1, 0)));
+
+  document.getElementById("speed").textContent = Math.round(Math.abs(speed) * 300);
+
+  renderer.render(scene, camera);
+}
+</script>
+
+</body>
+</html>

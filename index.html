@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Performance — Speed, Reliability, Accuracy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #0f1113;
+  --bg-panel: rgba(23, 26, 29, 0.88);
+  --bg-panel-solid: #171a1d;
+  --ink: #ecece4;
+  --muted: #8b8e93;
+  --accent: #ff6a1a;
+  --accent-cyan: #4fd1e8;
+  --line: #33373c;
+  --display: 'Oswald', sans-serif;
+  --body: 'IBM Plex Sans', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ---------- HERO / SLIDESHOW SECTION ---------- */
+main.hero-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(30px, 5vh, 60px) clamp(20px, 4vw, 60px);
+}
+
+.slideshow-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 1050px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+/* REMOVE BORDER, SHADOW, AND PANEL BG WHEN LOADING */
+.slideshow-wrapper.is-loading {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.slides-viewport {
+  position: relative;
+  width: 100%;
+  min-height: 480px;
+  display: flex;
+  align-items: center;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 40px;
+  gap: 30px;
+}
+
+.slide.active {
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+}
+
+.slide-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 2;
+}
+
+.slide-eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slide-eyebrow::before {
+  content: '';
+  width: 20px;
+  height: 1px;
+  background: var(--accent);
+}
+
+.slide-title {
+  font-family: var(--display);
+  font-size: clamp(38px, 6vw, 64px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+
+.slide-desc {
+  /*font-size: 15px;*/
+  font-size: 20px;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 420px;
+}
+
+.slide-media {
+  width: 100%;
+  height: 340px;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slide-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---------- STANDALONE LOGO OVERLAY ---------- */
+.slide-loader-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.slide-loader-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.circular-loader-container {
+  position: relative;
+  width: 380px;
+  height: 380px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.circular-loader-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.circular-loader-ring circle {
+  fill: none;
+  stroke-width: 5;
+}
+
+.circular-loader-ring .bg-track {
+  stroke: var(--line);
+}
+
+.circular-loader-ring .progress-track {
+  stroke: var(--accent);
+  stroke-dasharray: 283;
+  stroke-dashoffset: 283;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.05s linear;
+}
+
+.circular-logo-wrapper {
+  position: absolute;
+  width: 270px;
+  height: 270px;
+  border-radius: 50%;
+  border: 4px solid var(--line);
+  background: var(--bg-panel-solid);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
+}
+
+.circular-logo-wrapper img {
+  max-width: 85%;
+  max-height: 85%;
+  object-fit: contain;
+}
+
+.circular-logo-fallback {
+  font-family: var(--display);
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.1em;
+}
+
+.circular-logo-fallback span {
+  color: var(--accent);
+}
+
+.loader-label {
+  margin-top: 24px;
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- NAVIGATION CONTROLS ---------- */
+.slideshow-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 30px;
+  border-top: 1px solid var(--line);
+  background: rgba(15, 17, 19, 0.6);
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.slideshow-wrapper.is-loading .slideshow-controls {
+  border-top-color: transparent !important;
+}
+
+.indicators {
+  display: flex;
+  gap: 14px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--line);
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+
+.dot.active {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+
+.progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.05s linear;
+}
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 768px) {
+  .slide {
+    grid-template-columns: 1fr;
+    padding: 24px;
+  }
+  .slide-media {
+    height: 240px;
+  }
+  .circular-loader-container {
+    width: 260px;
+    height: 260px;
+  }
+  .circular-logo-wrapper {
+    width: 180px;
+    height: 180px;
+  }
+}
+</style>
+</head>
+<body>
+
+  <main class="hero-section">
+    <div class="slideshow-wrapper" id="slideshowWrapper">
+
+      <!-- LOGO OVERLAY COVERS ENTIRE WRAPPER WHILE LOADING -->
+      <div class="slide-loader-overlay" id="loaderOverlay">
+        <div class="circular-loader-container">
+          <svg class="circular-loader-ring" viewBox="0 0 100 100">
+            <circle class="bg-track" cx="50" cy="50" r="45"></circle>
+            <circle class="progress-track" id="ringProgress" cx="50" cy="50" r="45"></circle>
+          </svg>
+          <div class="circular-logo-wrapper">
+            <img src="logo1.png" alt="Apex Logo" onerror="this.style.display='none'; document.getElementById('circleAltLogo').style.display='block';">
+            <div id="circleAltLogo" class="circular-logo-fallback" style="display:none;">APEX<span>.</span></div>
+          </div>
+        </div>
+        <div class="loader-label" id="loaderLabel">LOADING MOTORING SITE</div>
+      </div>
+
+      <div class="slides-viewport">
+
+        <div class="slide active" data-index="0">
+          <div class="slide-content">
+            <div class="slide-eyebrow">Highlight 01</div>
+            <h1 class="slide-title">Speed</h1>
+            <p class="slide-desc">FASTER RESULTS, SEARCH IN LESS THAT 3s</p>
+          </div>
+          <div class="slide-media">
+            <img src="SPEED.gif" alt="Speed Highlight" onerror="this.src='https://picsum.photos/800/600?grayscale&blur=2';">
+          </div>
+        </div>
+
+        <div class="slide" data-index="1">
+          <div class="slide-content">
+            <div class="slide-eyebrow">Highlight 02</div>
+            <h1 class="slide-title">Reliability</h1>
+            <p class="slide-desc">BEST QUALITY, LATEST ADDRESS,EMAIL,PHONE </p>
+          </div>
+          <div class="slide-media">
+            <img src="REALIABILITY.webp" alt="Reliability Highlight" onerror="this.src='https://picsum.photos/800/600?grayscale&blur=2';">
+          </div>
+        </div>
+
+        <div class="slide" data-index="2">
+          <div class="slide-content">
+            <div class="slide-eyebrow">Highlight 03</div>
+            <h1 class="slide-title">Accuracy</h1>
+            <p class="slide-desc">SATISFY YOUR UNIQUE, CHOSEN TRANSMISSION,YEAR, PRICE</p>
+          </div>
+          <div class="slide-media">
+            <img src="ACCURACY.gif" alt="Accuracy Highlight" onerror="this.src='https://picsum.photos/800/600?grayscale&blur=2';">
+          </div>
+        </div>
+
+      </div>
+
+      <div class="slideshow-controls">
+        <div class="indicators" id="indicators">
+          <button class="dot active" data-slide="0" aria-label="Slide 1"></button>
+          <button class="dot" data-slide="1" aria-label="Slide 2"></button>
+          <button class="dot" data-slide="2" aria-label="Slide 3"></button>
+        </div>
+      </div>
+
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </main>
+
+
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const slides = document.querySelectorAll('.slide');
+    const dots = document.querySelectorAll('.dot');
+    const progressBar = document.getElementById('progressBar');
+    const wrapper = document.getElementById('slideshowWrapper');
+    const loaderOverlay = document.getElementById('loaderOverlay');
+    const ringProgress = document.getElementById('ringProgress');
+
+    let currentIndex = 0;
+    const slideDuration = 1000;      // 1 second slide display
+    const transitionDuration = 1000; // 1 second logo loading
+    const ringCircumference = 183; 
+
+    let timer = null;
+    let progressInterval = null;
+    let startTime = 0;
+    let isTransitioning = false;
+
+    function goToSlide(targetIndex) {
+      if (isTransitioning) return;
+      isTransitioning = true;
+
+      clearTimeout(timer);
+      clearInterval(progressInterval);
+
+      // Hide active slide & add is-loading class to strip outer wrapper borders/shadows
+      slides[currentIndex].classList.remove('active');
+      wrapper.classList.add('is-loading');
+
+      // Reveal full standalone logo overlay
+      ringProgress.style.strokeDashoffset = ringCircumference;
+      loaderOverlay.classList.add('active');
+
+      let loaderStartTime = Date.now();
+      let loaderInterval = setInterval(() => {
+        let elapsed = Date.now() - loaderStartTime;
+        let progress = Math.min(elapsed / transitionDuration, 1);
+        let offset = ringCircumference - (progress * ringCircumference);
+        ringProgress.style.strokeDashoffset = offset;
+
+        if (progress >= 1) {
+          clearInterval(loaderInterval);
+
+          // REDIRECT CHECK: If we reached the end of the last slide, redirect to home.html
+          if (targetIndex >= slides.length) {
+            window.location.href = 'home.html';
+            return;
+          }
+
+          // Update indicators and active index
+          dots[currentIndex].classList.remove('active');
+          currentIndex = targetIndex;
+          dots[currentIndex].classList.add('active');
+
+          // Hide logo overlay and restore container frame
+          loaderOverlay.classList.remove('active');
+          wrapper.classList.remove('is-loading');
+
+          setTimeout(() => {
+            slides[currentIndex].classList.add('active');
+            isTransitioning = false;
+            startTimer();
+          }, 100);
+        }
+      }, 16);
+    }
+
+    function nextSlide() {
+      goToSlide(currentIndex + 1);
+    }
+
+    function startTimer() {
+      startTime = Date.now();
+      progressBar.style.width = '0%';
+
+      progressInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const pct = Math.min((elapsed / slideDuration) * 100, 100);
+        progressBar.style.width = pct + '%';
+      }, 16);
+
+      timer = setTimeout(() => {
+        nextSlide();
+      }, slideDuration);
+    }
+
+    // Dot navigation support
+    dots.forEach(dot => {
+      dot.addEventListener('click', (e) => {
+        const index = parseInt(e.target.dataset.slide);
+        goToSlide(index);
+      });
+    });
+
+    // Pause slide timer when hovered over slide view
+    wrapper.addEventListener('mouseenter', () => {
+      if (!isTransitioning) {
+        clearTimeout(timer);
+        clearInterval(progressInterval);
+      }
+    });
+
+    wrapper.addEventListener('mouseleave', () => {
+      if (!isTransitioning) {
+        startTimer();
+      }
+    });
+
+    // Kick off execution
+    startTimer();
+  });
+</script>
+
+</body>
+</html>

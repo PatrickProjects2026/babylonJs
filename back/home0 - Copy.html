@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Garage — Built to your redline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<style>
+:root{
+  --bg:#0f1113;
+  --bg-panel:rgba(23,26,29,0.86);
+  --bg-panel-solid:#171a1d;
+  --ink:#ecece4;
+  --muted:#8b8e93;
+  --accent:#ff6a1a;
+  --accent-2:#4fd1e8;
+  --line:#33373c;
+  --danger:#c4341f;
+  --display:'Oswald',sans-serif;
+  --body:'IBM Plex Sans',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--body);
+  overflow-x:hidden;
+}
+::selection{background:var(--accent);color:#14100c;}
+
+/* ---------- background canvas ---------- */
+#renderCanvas{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  outline:none;
+  touch-action:none;
+  z-index:0;
+}
+#canvasVignette{
+  position:fixed;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at center, rgba(15,17,19,0) 40%, rgba(15,17,19,0.85) 100%),
+    linear-gradient(180deg, rgba(15,17,19,0.55) 0%, rgba(15,17,19,0) 18%, rgba(15,17,19,0) 78%, rgba(15,17,19,0.75) 100%);
+}
+#fadeOverlay{
+  position:fixed;
+  inset:0;
+  z-index:2;
+  pointer-events:none;
+  background:var(--bg);
+  opacity:0;
+  transition:opacity .5s ease;
+}
+#fadeOverlay.active{opacity:1;}
+
+/* ---------- loader ---------- */
+#loader{
+  position:fixed;
+  inset:0;
+  z-index:50;
+  background:var(--bg);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:18px;
+  transition:opacity .6s ease, visibility .6s ease;
+}
+#loader.hidden{opacity:0;visibility:hidden;pointer-events:none;}
+.loader-mark{
+  font-family:var(--display);
+  font-size:14px;
+  letter-spacing:.4em;
+  color:var(--muted);
+  text-transform:uppercase;
+}
+.loader-bar{
+  width:220px;
+  height:2px;
+  background:var(--line);
+  position:relative;
+  overflow:hidden;
+}
+.loader-bar span{
+  position:absolute;
+  top:0;left:-40%;
+  width:40%;height:100%;
+  background:var(--accent);
+  animation:loaderSweep 1.1s ease-in-out infinite;
+}
+@keyframes loaderSweep{
+  0%{left:-40%;}
+  50%{left:60%;}
+  100%{left:-40%;}
+}
+
+/* ---------- layout scaffolding ---------- */
+header.topbar{
+  position:fixed;
+  top:0;left:0;right:0;
+  z-index:30;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:22px clamp(20px,4vw,56px);
+  mix-blend-mode:normal;
+}
+.logo{
+  font-family:var(--display);
+  font-size:15px;
+  letter-spacing:.28em;
+  text-transform:uppercase;
+  color:var(--ink);
+  text-decoration:none;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.logo .dot{width:6px;height:6px;background:var(--accent);border-radius:50%;display:inline-block;}
+nav.primary-nav{
+  display:flex;
+  gap:clamp(14px,2vw,32px);
+}
+nav.primary-nav a{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--muted);
+  text-decoration:none;
+  padding:6px 0;
+  border-bottom:1px solid transparent;
+  transition:color .25s ease, border-color .25s ease;
+}
+nav.primary-nav a:hover,
+nav.primary-nav a.active{
+  color:var(--ink);
+  border-color:var(--accent);
+}
+@media (max-width:720px){
+  nav.primary-nav{gap:12px;}
+  nav.primary-nav a{font-size:10px;}
+}
+
+/* ---------- scroll gauge (right rail) ---------- */
+#gauge{
+  position:fixed;
+  right:clamp(14px,3vw,40px);
+  top:50%;
+  transform:translateY(-50%);
+  z-index:30;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:10px;
+}
+#gauge .track{
+  position:relative;
+  width:2px;
+  height:180px;
+  background:var(--line);
+}
+#gauge .fill{
+  position:absolute;
+  bottom:0;left:0;
+  width:100%;
+  height:0%;
+  background:var(--accent);
+}
+#gauge .stops{
+  position:absolute;
+  inset:0;
+}
+#gauge .stop{
+  position:absolute;
+  left:-3px;
+  width:8px;height:8px;
+  border-radius:50%;
+  background:var(--bg);
+  border:1px solid var(--line);
+  transform:translateY(-50%);
+  cursor:pointer;
+  transition:border-color .25s ease, background .25s ease;
+}
+#gauge .stop.active{background:var(--accent);border-color:var(--accent);}
+#gauge .readout{
+  font-family:var(--mono);
+  font-size:10px;
+  color:var(--muted);
+  letter-spacing:.1em;
+}
+@media (max-width:720px){#gauge{display:none;}}
+
+/* ---------- sections ---------- */
+main{position:relative;z-index:10;}
+.section{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  padding:clamp(100px,12vh,160px) clamp(20px,6vw,72px) 80px;
+  position:relative;
+}
+.panel{
+  background:var(--bg-panel);
+  backdrop-filter:blur(6px);
+  border:1px solid var(--line);
+  padding:clamp(28px,4vw,52px);
+  max-width:560px;
+}
+.eyebrow{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--accent);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:18px;
+}
+.eyebrow::before{
+  content:'';
+  width:24px;height:1px;
+  background:var(--accent);
+}
+h1,h2{
+  font-family:var(--display);
+  text-transform:uppercase;
+  line-height:1.02;
+  margin:0 0 20px;
+  font-weight:600;
+}
+h1{font-size:clamp(46px,8vw,96px);letter-spacing:.01em;}
+h2{font-size:clamp(32px,5vw,54px);}
+p{
+  font-size:16px;
+  line-height:1.65;
+  color:#c9c9c2;
+  margin:0 0 18px;
+  max-width:52ch;
+}
+.muted{color:var(--muted);}
+
+/* ---------- hero ---------- */
+#home{align-items:flex-end;padding-bottom:clamp(60px,10vh,120px);}
+#home .hero-inner{max-width:760px;}
+#home .cta-row{
+  display:flex;
+  gap:16px;
+  margin-top:28px;
+  flex-wrap:wrap;
+}
+.btn{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  text-decoration:none;
+  padding:14px 26px;
+  border:1px solid var(--line);
+  color:var(--ink);
+  display:inline-block;
+  transition:border-color .25s ease, background .25s ease, color .25s ease;
+}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#14100c;}
+.btn.primary:hover{background:#ff8a45;}
+.btn:not(.primary):hover{border-color:var(--ink);}
+.scroll-cue{
+  position:absolute;
+  bottom:36px;left:clamp(20px,6vw,72px);
+  display:flex;
+  align-items:center;
+  gap:12px;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.2em;
+  color:var(--muted);
+}
+.scroll-cue .line{width:32px;height:1px;background:var(--muted);position:relative;overflow:hidden;}
+.scroll-cue .line::after{
+  content:'';
+  position:absolute;top:0;left:-100%;width:100%;height:100%;
+  background:var(--accent);
+  animation:scrollcue 1.8s ease-in-out infinite;
+}
+@keyframes scrollcue{0%{left:-100%;}50%{left:100%;}100%{left:100%;}}
+
+/* ---------- about ---------- */
+#about{justify-content:flex-start;}
+.spec-rows{margin-top:26px;border-top:1px solid var(--line);}
+.spec-row{
+  display:flex;
+  justify-content:space-between;
+  padding:12px 0;
+  border-bottom:1px solid var(--line);
+  font-family:var(--mono);
+  font-size:12px;
+  letter-spacing:.05em;
+}
+.spec-row span:first-child{color:var(--muted);text-transform:uppercase;}
+.spec-row span:last-child{color:var(--ink);}
+
+/* ---------- products ---------- */
+#products{flex-direction:column;align-items:flex-start;justify-content:center;gap:36px;}
+#products .panel{max-width:640px;}
+.fleet-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:12px;
+  margin-top:26px;
+  max-width:900px;
+  width:100%;
+}
+.fleet-card{
+  background:var(--bg-panel);
+  border:1px solid var(--line);
+  padding:16px;
+  cursor:pointer;
+  text-align:left;
+  color:var(--ink);
+  font-family:var(--body);
+  transition:border-color .25s ease, transform .25s ease;
+}
+.fleet-card:hover{transform:translateY(-3px);}
+.fleet-card.active{border-color:var(--accent);}
+.fleet-card .fc-name{
+  font-family:var(--display);
+  font-size:16px;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+  margin-bottom:4px;
+}
+.fleet-card .fc-tag{
+  font-family:var(--mono);
+  font-size:10px;
+  color:var(--muted);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.config-row{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:22px;
+  margin-top:8px;
+}
+.swatches{display:flex;gap:10px;align-items:center;}
+.swatch{
+  width:26px;height:26px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,0.25);
+  cursor:pointer;
+  transition:transform .2s ease, box-shadow .2s ease;
+}
+.swatch:hover{transform:scale(1.12);}
+.swatch.selected{box-shadow:0 0 0 2px var(--bg-panel-solid),0 0 0 3px var(--ink);}
+.color-custom{
+  width:26px;height:26px;
+  border:1px solid var(--line);
+  background:none;
+  padding:0;
+  cursor:pointer;
+  border-radius:50%;
+  overflow:hidden;
+}
+.textbtn{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+  background:none;
+  border:1px solid var(--line);
+  padding:10px 16px;
+  cursor:pointer;
+  transition:color .25s ease, border-color .25s ease;
+}
+.textbtn:hover{color:var(--ink);border-color:var(--ink);}
+.textbtn.on{color:var(--accent);border-color:var(--accent);}
+.readout{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--muted);
+  letter-spacing:.06em;
+  margin-top:22px;
+  padding-top:16px;
+  border-top:1px solid var(--line);
+  display:flex;
+  flex-wrap:wrap;
+  gap:24px;
+}
+.readout b{color:var(--ink);font-weight:500;}
+
+/* ---------- circular gallery slide section ---------- */
+#circular-gallery {
+  flex-direction: column;
+  align-items: stretch;
+  padding-left: 0;
+  padding-right: 0;
+}
+#circular-gallery .gallery-header {
+  padding: 0 clamp(20px,6vw,72px);
+  margin-bottom: 24px;
+}
+.circular-gallery-wrap {
+  position: relative;
+  width: 100%;
+  height: 600px;
+  overflow: hidden;
+  perspective: 1200px;
+  cursor: grab;
+  user-select: none;
+  touch-action: pan-y;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: rgba(15, 17, 19, 0.4);
+}
+.circular-gallery-wrap:active {
+  cursor: grabbing;
+}
+.circular-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+.circular-item {
+  position: absolute;
+  width: 230px;
+  height: 330px;
+  left: -115px;
+  top: -165px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--bg-panel-solid);
+  transform-style: preserve-3d;
+  will-change: transform;
+  border: 1px solid var(--line);
+  box-shadow:
+    0 15px 45px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: border-color 0.3s ease;
+}
+.circular-item:hover {
+  border-color: var(--accent);
+}
+.circular-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+.circular-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20px 12px 18px;
+  text-align: center;
+  color: #fff;
+  font: bold 26px Orbitron, sans-serif;
+  letter-spacing: 0.05em;
+  text-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.9),
+    0 0 15px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(15,17,19,0.95), transparent);
+}
+.circular-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  .circular-gallery-wrap {
+    height: 500px;
+  }
+  .circular-item {
+    width: 180px;
+    height: 260px;
+    left: -90px;
+    top: -130px;
+  }
+  .circular-label {
+    font-size: 20px;
+  }
+}
+
+/* ---------- driftwall gallery section ---------- */
+#gallery {
+  flex-direction: column;
+  align-items: stretch;
+  padding-left: 0;
+  padding-right: 0;
+}
+#gallery .gallery-header {
+  padding: 0 clamp(20px,6vw,72px);
+  margin-bottom: 24px;
+}
+
+.drift-wall {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  overflow: hidden;
+  perspective: 1200px;
+  background: rgba(15, 17, 19, 0.4);
+  isolation: isolate;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.drift-wall__viewport {
+  position: absolute;
+  inset: -100px;
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+.drift-wall__columns {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 200px);
+  justify-content: center;
+  gap: 18px;
+  transform-style: preserve-3d;
+}
+.drift-wall__column {
+  position: relative;
+  height: 100%;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.drift-wall__tile {
+  position: absolute;
+  left: 0;
+  width: 200px;
+  height: 132px;
+  display: block;
+  overflow: hidden;
+  text-decoration: none;
+  color: white;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  transform-style: preserve-3d;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.35s ease, border-color 0.35s ease;
+  will-change: transform;
+}
+.drift-wall__tile:hover {
+  z-index: 10;
+  border-color: var(--accent);
+  transform: translateZ(64px) rotateX(-2deg) rotateY(2deg) scale(1.035);
+  filter: brightness(1.15);
+}
+.drift-wall__tile img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.drift-wall__tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 35%, rgba(0, 0, 0, 0.75) 100%);
+  pointer-events: none;
+}
+.drift-wall__title {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 2;
+  font-family: var(--display);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+.drift-wall__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  background: var(--bg);
+  opacity: 0.45;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 18%, transparent 82%, black 100%);
+  mask-image: linear-gradient(to bottom, black 0%, transparent 18%, transparent 82%, black 100%);
+}
+.drift-wall__vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 21;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(15, 17, 19, 0.4) 65%, rgba(15, 17, 19, 0.9) 100%);
+}
+.drift-wall__fade {
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(15, 17, 19, 0.95) 0%, transparent 16%, transparent 84%, rgba(15, 17, 19, 0.95) 100%);
+}
+
+@media (max-width: 900px) {
+  .drift-wall__columns { grid-template-columns: repeat(4, 200px); }
+}
+@media (max-width: 700px) {
+  .drift-wall { height: 420px; }
+  .drift-wall__columns { grid-template-columns: repeat(3, 200px); }
+}
+@media (max-width: 500px) {
+  .drift-wall__columns { grid-template-columns: repeat(2, 200px); }
+}
+
+/* ---------- contact ---------- */
+#contact{justify-content:flex-end;}
+#contact .panel{max-width:520px;}
+.field{margin-bottom:16px;display:flex;flex-direction:column;gap:6px;}
+.field label{
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.field input,.field select,.field textarea{
+  background:rgba(255,255,255,0.03);
+  border:1px solid var(--line);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:14px;
+  padding:12px 14px;
+  outline:none;
+  transition:border-color .25s ease;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);}
+.field textarea{resize:vertical;min-height:90px;}
+#contactForm .btn{border:1px solid var(--accent);background:var(--accent);color:#14100c;margin-top:6px;cursor:pointer;}
+#contactForm .btn:hover{background:#ff8a45;}
+#formNote{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--accent-2);
+  margin-top:14px;
+  display:none;
+}
+#formNote.show{display:block;}
+
+footer{
+  position:relative;
+  z-index:10;
+  padding:28px clamp(20px,6vw,72px) 36px;
+  display:flex;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.08em;
+  color:var(--muted);
+  border-top:1px solid var(--line);
+}
+
+/* reveal animation base state */
+.reveal{opacity:0;transform:translateY(28px);}
+@media (prefers-reduced-motion:reduce){
+  .reveal{opacity:1;transform:none;}
+  html{scroll-behavior:auto;}
+  .drift-wall__column { animation: none !important; }
+  .drift-wall__tile { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="loader-mark">Apex Garage — initializing lift</div>
+  <div class="loader-bar"><span></span></div>
+</div>
+
+<canvas id="renderCanvas"></canvas>
+<div id="canvasVignette"></div>
+<div id="fadeOverlay"></div>
+
+<header class="topbar">
+  <a href="#home" class="logo"> <img src="logo1.png" style="width:200px;"/> </a>
+  <nav class="primary-nav">
+    <a href="#home" data-nav="home" class="active">Home</a>
+    <!-- <a href="#about" data-nav="about">About</a> -->
+    <a href="#products" data-nav="products">Sellers</a>
+    <!-- <a href="#circular-gallery" data-nav="circular-gallery">Spotlight</a> -->
+    <a href="#gallery" data-nav="gallery">Dealers</a>
+    <a href="#contact" data-nav="contact">Join</a>
+  </nav>
+</header>
+
+<div id="gauge">
+  <div class="track">
+    <div class="fill" id="gaugeFill"></div>
+    <div class="stops" id="gaugeStops"></div>
+  </div>
+  <div class="readout"><span id="gaugePct">000</span>%</div>
+</div>
+
+<main>
+
+  <section id="home" class="section">
+    <div class="hero-inner">
+      <div class="eyebrow reveal">Performance Speed</div>
+      <h1 class="reveal">SPEED</h1>
+      <p class="reveal">FASTER RESULTS , SEARCH IN LESS THAT 3s</p>
+      <div class="cta-row reveal">
+        <a href="#products" class="btn primary">View the fleet</a>
+        <a href="#contact" class="btn">Book a consultation</a>
+      </div>
+    </div>
+    <div class="scroll-cue"><span>SCROLL</span><span class="line"></span></div>
+  </section>
+
+  <!-- <section id="about" class="section">
+    <div class="panel reveal">
+      <div class="eyebrow">About the garage</div>
+      <h2>Every panel<br>gapped by hand.</h2>
+      <p>Apex Garage is a small, chassis-up workshop. We take one car at a time onto the lift, strip it to bare metal, correct what the factory rushed, and rebuild it to a spec the owner actually chose — not the one on the brochure.</p>
+      <p>No franchise paint booth, no templated trims. If you can point at it on the car, we can change it.</p>
+      <div class="spec-rows">
+        <div class="spec-row"><span>Founded</span><span>2016</span></div>
+        <div class="spec-row"><span>Discipline</span><span>Paint · Chassis · Tune</span></div>
+        <div class="spec-row"><span>Builds to date</span><span>340+</span></div>
+        <div class="spec-row"><span>Lead time</span><span>6–10 weeks</span></div>
+      </div>
+    </div>
+  </section> -->
+      
+  <section id="products" class="section">
+    <div class="panel reveal">
+      <div class="eyebrow">The fleet</div>
+      <h2>ACCURACY</h2>
+      <p>SATISFY YOUR UNIQUE NEED, YOUR CHOSEN TRANSMISSION,YEAR & PRICE</p>
+    </div>
+
+    <div class="fleet-grid reveal" id="fleetGrid">
+       <button class="fleet-card active" data-file="cars/2023_bmw_m2_g87_coupe.glb">
+        <div class="fc-name">BMW M2 G87</div>
+        <div class="fc-tag">2023</div>
+      </button>
+      <button class="fleet-card" data-file="cars/1989 Honda Civic DX Hatchback.glb">
+        <div class="fc-name">Honda Civic DX</div>
+        <div class="fc-tag">1989</div>
+      </button>
+      <button class="fleet-card" data-file="cars/nissan-skyline-gtr-r33-top-secret-x-hugosilva.glb">
+        <div class="fc-name">Nissan Skyline GT-R R33</div>
+        <div class="fc-tag">R33</div>
+      </button>
+      <button class="fleet-card" data-file="cars/2021_ram_1500_trx.glb">
+        <div class="fc-name">RAM 1500 TRX</div>
+        <div class="fc-tag">2021</div>
+      </button>
+      <button class="fleet-card" data-file="cars/rolls-royce_ghost.glb">
+        <div class="fc-name">Rolls Royce Ghost</div>
+        <div class="fc-tag">2005</div>
+      </button>
+        <button class="fleet-card" data-file="cars/219.glb">
+        <div class="fc-name">BMW 219</div>
+        <div class="fc-tag">219</div>
+      </button>
+    </div>
+
+    <div class="panel reveal" style="max-width:900px;width:100%;">
+      <div class="eyebrow" style="margin-bottom:14px;">Configure paint</div>
+      <div class="config-row">
+        <div class="swatches" id="swatches">
+          <button class="swatch selected" style="background:#ff6a1a" data-hex="#ff6a1a" title="Redline Amber"></button>
+          <button class="swatch" style="background:#f2f1ed" data-hex="#f2f1ed" title="Alpine White"></button>
+          <button class="swatch" style="background:#23262a" data-hex:#23262a" title="Stealth Graphite"></button>
+          <button class="swatch" style="background:#4fd1e8" data-hex="#4fd1e8" title="Blueprint Cyan"></button>
+          <button class="swatch" style="background:#c4341f" data-hex="#c4341f" title="Racing Red"></button>
+          <label class="color-custom" title="Custom color">
+            <input type="color" id="customColor" value="#ff6a1a" style="width:150%;height:150%;border:none;cursor:pointer;">
+          </label>
+        </div>
+        <button class="textbtn" id="resetPaintBtn">Reset factory paint</button>
+        <button class="textbtn" id="lightsBtn">Headlights: Off</button>
+      </div>
+      <div class="readout">
+        <span>MODEL <b id="roModel">BMW M2 G87</b></span>
+        <span>PAINT <b id="roColor">#FF6A1A</b></span>
+        <span>STATUS <b id="roStatus">Ready</b></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- CIRCULAR GALLERY SECTION -->
+  <section id="circular-gallery" class="section">
+    <!-- <div class="gallery-header panel reveal">
+      <div class="eyebrow">Spotlight</div>
+      <h2>3D Circular<br>Showcase.</h2>
+      <p>Interactive 3D view of current projects and featured destinations.</p>
+    </div> -->
+
+    <!-- <div class="circular-gallery-wrap" id="circularGallery">
+      <div class="circular-stage" id="circularStage"></div>
+      <div class="circular-hint">
+        Drag to rotate · Scroll to explore
+      </div>
+    </div> -->
+  </section>
+
+  <!-- DRIFTWALL GALLERY SECTION -->
+  <section id="gallery" class="section">
+    <div class="gallery-header panel reveal">
+      <div class="eyebrow">Media Archive</div>
+      <h2>REALIABILITY</h2>
+      <p>BEST QUALITY , LATEST ADDRESS,EMAIL & PHONE NUMBER</p>
+    </div>
+
+    <div class="drift-wall" id="driftWall">
+      <div class="drift-wall__viewport">
+        <div class="drift-wall__columns" id="driftColumns"></div>
+      </div>
+      <div class="drift-wall__overlay"></div>
+      <div class="drift-wall__vignette"></div>
+      <div class="drift-wall__fade"></div>
+    </div>
+  </section>
+
+  <section id="contact" class="section">
+
+<center>
+    <div class="hero-inner">
+      <div class="eyebrow reveal">Performance Speed</div>
+      <h1 class="reveal">JOIN NETWORK</h1>
+      <p class="reveal">SIGN IN TO SELL OR BE ABLE TO BUY A CAR</p>
+      <div class="cta-row reveal">
+        <a href="#products" class="btn primary">SELL A CAR</a>
+        <a href="#contact" class="btn">BUY A CAR</a>
+      </div>
+    </div>
+    </center>
+
+    <!-- <div class="panel reveal">
+      <div class="eyebrow">Get in touch</div>
+      <h2>Bring us the<br>spec sheet.</h2>
+      <p>Tell us what you're driving and what you want it to become. We'll follow up with a build slot and a rough quote.</p>
+      <form id="contactForm">
+        <div class="field">
+          <label for="cName">Name</label>
+          <input id="cName" type="text" required placeholder="Your name">
+        </div>
+        <div class="field">
+          <label for="cEmail">Email</label>
+          <input id="cEmail" type="email" required placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label for="cCar">Build interested in</label>
+          <select id="cCar">
+            <option>BMW M5</option>
+            <option>BMW M2 G87</option>
+            <option>BMW CSL 3.5</option>
+            <option>Civic DX</option>
+            <option>Something else</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cMsg">Message</label>
+          <textarea id="cMsg" placeholder="What are we building?"></textarea>
+        </div>
+        <button type="submit" class="btn">Send inquiry</button>
+        <div id="formNote">Received — this is a front-end demo, so nothing was actually sent. Wire this form to your backend or an email service to go live.</div>
+      </form>
+    </div> -->
+
+
+  </section>
+
+</main>
+
+<footer>
+  <span>© 2026 Apex Garage. All builds bespoke.</span>
+  <span>Instagram · Youtube · WhatsApp</span>
+</footer>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* =========================================================
+   BABYLON SCENE
+   ========================================================= */
+const canvas = document.getElementById("renderCanvas");
+const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+
+let carChassis = null;
+let carMesh = null;
+let loadedMeshes = [];
+const originalColors = new Map();
+let leftHeadlight = null;
+let rightHeadlight = null;
+let headlightsOn = false;
+let currentFile = "cars/2023_bmw_m2_g87_coupe.glb";
+
+const excludedKeywords = ["wheel","rim","tire","tyre","brake","caliper","glass","window","windshield","light","lamp","interior","seat","steering","engine","exhaust","mirror","grille","badge","logo"];
+const bodyKeywords = ["body","paint","carbody","chassis","door","hood","trunk","fender","bumper"];
+const containsKeyword = (str, keywords) => {
+  if (!str) return false;
+  const s = str.toLowerCase();
+  return keywords.some(k => s.includes(k));
+};
+
+const cloneAndSeparateMaterials = (meshes) => {
+  const matMap = new Map();
+  meshes.forEach(mesh => {
+    if (mesh.material) {
+      if (!matMap.has(mesh.material)) {
+        const cloned = mesh.material.clone(mesh.material.name + "_unique");
+        matMap.set(mesh.material, cloned);
+        mesh.material = cloned;
+      } else {
+        mesh.material = matMap.get(mesh.material);
+      }
+    }
+  });
+};
+
+const saveOriginalColors = () => {
+  originalColors.clear();
+  loadedMeshes.forEach(mesh => {
+    if (mesh.material) {
+      if (mesh.material.albedoColor) originalColors.set(mesh, mesh.material.albedoColor.clone());
+      else if (mesh.material.diffuseColor) originalColors.set(mesh, mesh.material.diffuseColor.clone());
+    }
+  });
+};
+
+const resetCarColor = () => {
+  loadedMeshes.forEach(mesh => {
+    if (mesh.material && originalColors.has(mesh)) {
+      const orig = originalColors.get(mesh);
+      if (mesh.material.albedoColor) mesh.material.albedoColor = orig.clone();
+      else if (mesh.material.diffuseColor) mesh.material.diffuseColor = orig.clone();
+    }
+  });
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  document.getElementById('roColor').textContent = "Factory";
+};
+
+const updateCarColor = (hexColor) => {
+  const color = BABYLON.Color3.FromHexString(hexColor);
+  loadedMeshes.forEach(mesh => {
+    if (!mesh.material) return;
+    const meshName = mesh.name || "";
+    const matName = mesh.material.name || "";
+    const isExcluded = containsKeyword(meshName, excludedKeywords) || containsKeyword(matName, excludedKeywords);
+    const isBodyPart = containsKeyword(meshName, bodyKeywords) || containsKeyword(matName, bodyKeywords);
+    if (!isExcluded || isBodyPart) {
+      if (mesh.material instanceof BABYLON.PBRMaterial) {
+        mesh.material.albedoColor = color;
+      } else if (mesh.material instanceof BABYLON.StandardMaterial) {
+        mesh.material.diffuseColor = color;
+      } else if (mesh.material.subMaterials) {
+        mesh.material.subMaterials.forEach(subMat => {
+          if (!subMat) return;
+          if (!containsKeyword(subMat.name || "", excludedKeywords)) {
+            if (subMat.albedoColor) subMat.albedoColor = color;
+            if (subMat.diffuseColor) subMat.diffuseColor = color;
+          }
+        });
+      }
+    }
+  });
+  document.getElementById('roColor').textContent = hexColor.toUpperCase();
+};
+
+const setupHeadlights = (scene) => {
+  leftHeadlight = new BABYLON.SpotLight("leftHeadlight", new BABYLON.Vector3(-0.7,0.6,-1.8), new BABYLON.Vector3(0,-0.2,-1), Math.PI/3, 10, scene);
+  rightHeadlight = new BABYLON.SpotLight("rightHeadlight", new BABYLON.Vector3(0.7,0.6,-1.8), new BABYLON.Vector3(0,-0.2,-1), Math.PI/3, 10, scene);
+  leftHeadlight.parent = carChassis;
+  rightHeadlight.parent = carChassis;
+  leftHeadlight.diffuse = new BABYLON.Color3(1,0.95,0.8);
+  rightHeadlight.diffuse = new BABYLON.Color3(1,0.95,0.8);
+  leftHeadlight.intensity = 0;
+  rightHeadlight.intensity = 0;
+};
+
+const setHeadlightsState = (enable) => {
+  headlightsOn = enable;
+  const targetIntensity = headlightsOn ? 15 : 0;
+  if (leftHeadlight) leftHeadlight.intensity = targetIntensity;
+  if (rightHeadlight) rightHeadlight.intensity = targetIntensity;
+  loadedMeshes.forEach(mesh => {
+    if (!mesh.material) return;
+    const descriptor = (mesh.name + " " + mesh.material.name).toLowerCase();
+    if (descriptor.includes("headlight") || descriptor.includes("lamp") || descriptor.includes("light")) {
+      const glow = headlightsOn ? new BABYLON.Color3(1,0.95,0.8) : new BABYLON.Color3(0,0,0);
+      if (mesh.material.emissiveColor) mesh.material.emissiveColor = glow;
+    }
+  });
+  const btn = document.getElementById("lightsBtn");
+  btn.textContent = `Headlights: ${headlightsOn ? "On" : "Off"}`;
+  btn.classList.toggle("on", headlightsOn);
+};
+
+let scene, camera;
+const cameraProxy = { alpha: Math.PI/2, beta: Math.PI/2.3, radius: 14 };
+let ambientSpin = 0;
+
+const createScene = async function () {
+  scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0.06,0.065,0.075,1);
+
+  const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0,1,0), scene);
+  light.intensity = 0.9;
+  const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-1,-2,-1), scene);
+  dirLight.intensity = 1.4;
+  const rimLight = new BABYLON.DirectionalLight("rimLight", new BABYLON.Vector3(1,-0.4,1), scene);
+  rimLight.intensity = 0.5;
+  rimLight.diffuse = new BABYLON.Color3(0.5,0.7,1);
+
+  camera = new BABYLON.ArcRotateCamera("camera", cameraProxy.alpha, cameraProxy.beta, cameraProxy.radius, BABYLON.Vector3.Zero(), scene);
+  camera.lowerBetaLimit = 0.15;
+  camera.upperBetaLimit = Math.PI/2 - 0.03;
+  camera.lowerRadiusLimit = 6;
+  camera.upperRadiusLimit = 26;
+  camera.inputs.clear();
+
+  const ground = BABYLON.MeshBuilder.CreateDisc("ground", { radius: 40, tessellation: 64 }, scene);
+  ground.rotation.x = Math.PI/2;
+  const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+  groundMat.diffuseColor = new BABYLON.Color3(0.05,0.05,0.06);
+  groundMat.specularColor = new BABYLON.Color3(0.05,0.05,0.05);
+  ground.material = groundMat;
+  ground.receiveShadows = true;
+
+  const loadCar = async (file) => {
+    if (carChassis) carChassis.dispose();
+    carChassis = new BABYLON.TransformNode("carChassis", scene);
+    const result = await BABYLON.SceneLoader.ImportMeshAsync("", "./", file, scene);
+    carMesh = result.meshes[0];
+    carMesh.parent = carChassis;
+    loadedMeshes = result.meshes;
+
+    cloneAndSeparateMaterials(loadedMeshes);
+    saveOriginalColors();
+    setupHeadlights(scene);
+    setHeadlightsState(headlightsOn);
+
+    const bounds = carMesh.getHierarchyBoundingVectors();
+    const currentLength = bounds.max.subtract(bounds.min).z;
+    const targetLength = file.includes("bmw") ? 10.9 : 10.0;
+    const ratio = targetLength / (currentLength || 1);
+    carMesh.scaling.setAll(ratio);
+    carMesh.position.y = 0.02;
+    currentFile = file;
+  };
+  window.__loadCar = loadCar;
+
+  scene.onBeforeRenderObservable.add(() => {
+    if (!reduceMotion) ambientSpin += 0.0007;
+    camera.alpha += (cameraProxy.alpha + ambientSpin - camera.alpha) * 0.06;
+    camera.beta += (cameraProxy.beta - camera.beta) * 0.06;
+    camera.radius += (cameraProxy.radius - camera.radius) * 0.06;
+  });
+
+  await loadCar(currentFile);
+  return scene;
+};
+
+createScene().then(() => {
+  engine.runRenderLoop(() => scene.render());
+  document.getElementById('loader').classList.add('hidden');
+  ScrollTrigger.refresh();
+});
+window.addEventListener("resize", () => engine.resize());
+
+/* =========================================================
+   SCROLL-DRIVEN CAMERA + AMBIENCE
+   ========================================================= */
+const sectionCamera = {
+  home:               { alpha: Math.PI/2,        beta: Math.PI/2.3,  radius: 14 },
+  about:              { alpha: Math.PI/2 + 1.1,  beta: Math.PI/2.6,  radius: 10 },
+  products:           { alpha: Math.PI/2 - 1.0,  beta: Math.PI/2.9,  radius: 8.5 },
+  'circular-gallery': { alpha: Math.PI/2 + 0.3,  beta: Math.PI/2.5,  radius: 12 },
+  gallery:            { alpha: Math.PI/2 + 0.8,  beta: Math.PI/2.4,  radius: 11 },
+  contact:            { alpha: Math.PI/2 + 2.4,  beta: Math.PI/2.15, radius: 12 }
+};
+
+if (!reduceMotion) {
+  Object.keys(sectionCamera).forEach(id => {
+    const target = sectionCamera[id];
+    gsap.timeline({
+      scrollTrigger: { trigger: `#${id}`, start: "top 85%", end: "bottom 15%", scrub: 1.2 }
+    }).to(cameraProxy, { alpha: target.alpha, beta: target.beta, radius: target.radius, ease: "none" });
+  });
+
+  ScrollTrigger.create({
+    trigger: "#contact",
+    start: "top 60%",
+    onEnter: () => setHeadlightsState(true),
+    onLeaveBack: () => setHeadlightsState(false)
+  });
+} 
+
+/* content reveal */
+document.querySelectorAll('.reveal').forEach((el, i) => {
+  if (reduceMotion) { el.style.opacity = 1; el.style.transform = 'none'; return; }
+  gsap.to(el, {
+    opacity: 1, y: 0, duration: 0.9, ease: "power3.out",
+    scrollTrigger: { trigger: el, start: "top 88%" },
+    delay: (i % 4) * 0.05
+  });
+});
+
+/* =========================================================
+   NAV + GAUGE
+   ========================================================= */
+const sectionIds = ["home","about","products","circular-gallery","gallery","contact"];
+const navLinks = {};
+sectionIds.forEach(id => navLinks[id] = document.querySelector(`a[data-nav="${id}"]`));
+
+const gaugeStops = document.getElementById('gaugeStops');
+const stopEls = {};
+sectionIds.forEach((id, i) => {
+  const el = document.createElement('div');
+  el.className = 'stop';
+  el.style.top = `${(i/(sectionIds.length-1))*100}%`;
+  el.title = id;
+  el.addEventListener('click', () => document.getElementById(id).scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' }));
+  gaugeStops.appendChild(el);
+  stopEls[id] = el;
+});
+
+sectionIds.forEach(id => {
+  ScrollTrigger.create({
+    trigger: `#${id}`,
+    start: "top 55%",
+    end: "bottom 55%",
+    onToggle: self => {
+      if (self.isActive) {
+        Object.values(navLinks).forEach(a => a.classList.remove('active'));
+        if (navLinks[id]) navLinks[id].classList.add('active');
+        Object.values(stopEls).forEach(s => s.classList.remove('active'));
+        if (stopEls[id]) stopEls[id].classList.add('active');
+      }
+    }
+  });
+});
+
+ScrollTrigger.create({
+  trigger: document.body,
+  start: "top top",
+  end: "bottom bottom",
+  onUpdate: self => {
+    const pct = Math.round(self.progress * 100);
+    document.getElementById('gaugeFill').style.height = pct + '%';
+    document.getElementById('gaugePct').textContent = String(pct).padStart(3,'0');
+  }
+});
+
+/* =========================================================
+   PRODUCTS: fleet select + paint config
+   ========================================================= */
+const fleetGrid = document.getElementById('fleetGrid');
+const roModel = document.getElementById('roModel');
+const roStatus = document.getElementById('roStatus');
+const fadeOverlay = document.getElementById('fadeOverlay');
+
+fleetGrid.addEventListener('click', async (e) => {
+  const card = e.target.closest('.fleet-card');
+  if (!card) return;
+  const file = card.dataset.file;
+  if (file === currentFile) return;
+
+  fleetGrid.querySelectorAll('.fleet-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  roStatus.textContent = "Loading…";
+  roModel.textContent = card.querySelector('.fc-name').textContent;
+
+  fadeOverlay.classList.add('active');
+  await new Promise(r => setTimeout(r, 350));
+  await window.__loadCar(file);
+  fadeOverlay.classList.remove('active');
+  roStatus.textContent = "Ready";
+
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  document.getElementById('roColor').textContent = "Factory";
+});
+
+document.getElementById('swatches').addEventListener('click', (e) => {
+  const sw = e.target.closest('.swatch');
+  if (!sw) return;
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  sw.classList.add('selected');
+  updateCarColor(sw.dataset.hex);
+});
+
+document.getElementById('customColor').addEventListener('input', (e) => {
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  updateCarColor(e.target.value);
+});
+
+document.getElementById('resetPaintBtn').addEventListener('click', resetCarColor);
+document.getElementById('lightsBtn').addEventListener('click', () => setHeadlightsState(!headlightsOn));
+
+/* =========================================================
+   CIRCULAR GALLERY SCRIPT (data-3)
+   ========================================================= */
+(() => {
+  const config = {
+    bend: 3,
+    textColor: "#ffffff",
+    borderRadius: 0.05,
+    scrollEase: 0.02,
+    font: "bold 26px Orbitron, sans-serif"
+  };
+
+  const images = [
+    {
+      src: "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=800&q=85",
+      title: "AURORA"
+    },
+    {
+      src: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=85",
+      title: "SUMMIT"
+    },
+    {
+      src: "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=800&q=85",
+      title: "ESCAPE"
+    },
+    {
+      src: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=85",
+      title: "HORIZON"
+    },
+    {
+      src: "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=800&q=85",
+      title: "ALPINE"
+    },
+    {
+      src: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=800&q=85",
+      title: "NATURE"
+    },
+    {
+      src: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=85",
+      title: "VALLEY"
+    },
+    {
+      src: "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=800&q=85",
+      title: "VOYAGE"
+    }
+  ];
+
+  const gallery = document.getElementById("circularGallery");
+  const stage = document.getElementById("circularStage");
+
+  if (!gallery || !stage) return;
+
+  const items = [];
+  const radius = Math.max(360, 430 - config.bend * 20);
+  const angleStep = 360 / images.length;
+
+  images.forEach((image, index) => {
+    const item = document.createElement("div");
+    item.className = "circular-item";
+    item.style.borderRadius = `${config.borderRadius * 100}%`;
+
+    const img = document.createElement("img");
+    img.src = image.src;
+    img.alt = image.title;
+    img.draggable = false;
+
+    const label = document.createElement("div");
+    label.className = "circular-label";
+    label.textContent = image.title;
+    label.style.color = config.textColor;
+
+    item.appendChild(img);
+    item.appendChild(label);
+    stage.appendChild(item);
+
+    items.push({
+      element: item,
+      angle: index * angleStep
+    });
+  });
+
+  let currentRotation = 0;
+  let targetRotation = 0;
+  let dragging = false;
+  let lastX = 0;
+
+  function render() {
+    currentRotation += (targetRotation - currentRotation) * config.scrollEase;
+
+    items.forEach(item => {
+      const angle = item.angle + currentRotation;
+      const radians = angle * Math.PI / 180;
+
+      const x = Math.sin(radians) * radius;
+      const z = Math.cos(radians) * radius;
+
+      const depthScale = 0.78 + ((z + radius) / (radius * 2)) * 0.22;
+      const y = Math.sin(radians * 2) * config.bend * 8;
+
+      item.element.style.transform =
+        `translate3d(${x}px, ${y}px, ${z}px)
+         rotateY(${angle}deg)
+         scale(${depthScale})`;
+
+      item.element.style.zIndex = Math.round(z + radius + 100);
+    });
+
+    requestAnimationFrame(render);
+  }
+
+  gallery.addEventListener("pointerdown", event => {
+    dragging = true;
+    lastX = event.clientX;
+    gallery.setPointerCapture(event.pointerId);
+  });
+
+  gallery.addEventListener("pointermove", event => {
+    if (!dragging) return;
+    const delta = event.clientX - lastX;
+    lastX = event.clientX;
+    targetRotation += delta * 0.35;
+  });
+
+  gallery.addEventListener("pointerup", () => { dragging = false; });
+  gallery.addEventListener("pointercancel", () => { dragging = false; });
+
+  gallery.addEventListener("wheel", event => {
+    event.preventDefault();
+    targetRotation += event.deltaY * 0.08;
+  }, { passive: false });
+
+  let touchX = 0;
+  gallery.addEventListener("touchstart", event => {
+    touchX = event.touches[0].clientX;
+  }, { passive: true });
+
+  gallery.addEventListener("touchmove", event => {
+    const x = event.touches[0].clientX;
+    const delta = x - touchX;
+    touchX = x;
+    targetRotation += delta * 0.35;
+  }, { passive: true });
+
+  window.addEventListener("keydown", event => {
+    if (event.key === "ArrowLeft") targetRotation -= 20;
+    if (event.key === "ArrowRight") targetRotation += 20;
+  });
+
+  render();
+})();
+
+/* =========================================================
+   DRIFTWALL ANIMATION SCRIPT
+   ========================================================= */
+(function initDriftWall() {
+  const items = [
+    { image: "https://picsum.photos/id/1015/600/400", title: "M2 Track Day", href: "#" },
+    { image: "https://picsum.photos/id/1025/600/400", title: "Civic Dyno Run", href: "#" },
+    { image: "https://picsum.photos/id/1039/600/400", title: "R33 Tuning", href: "#" },
+    { image: "https://picsum.photos/id/1070/600/400", title: "TRX Offroad", href: "#" },
+    { image: "https://picsum.photos/id/1069/600/400", title: "Ghost Detail", href: "#" }
+  ];
+
+  const config = {
+    columns: 5,
+    tileWidth: 200,
+    tileHeight: 132,
+    gap: 18,
+    tilt: 16,
+    turn: -14,
+    perspective: 1200,
+    depth: 120,
+    speed: 42,
+    direction: "up",
+    variance: 0.45,
+    parallax: 0.6,
+    overlayColor: "#0f1113"
+  };
+
+  const wall = document.getElementById("driftWall");
+  const columnsContainer = document.getElementById("driftColumns");
+  if (!wall || !columnsContainer) return;
+
+  wall.style.perspective = `${config.perspective}px`;
+
+  const tileStep = config.tileHeight + config.gap;
+  const columnHeight = wall.clientHeight + 400;
+  const copies = Math.ceil(columnHeight / (items.length * tileStep)) + 4;
+  const columns = [];
+
+  function createTile(item) {
+    const link = document.createElement("a");
+    link.className = "drift-wall__tile";
+    link.href = item.href || "#";
+
+    const image = document.createElement("img");
+    image.src = item.image;
+    image.alt = item.title || "";
+    image.loading = "lazy";
+
+    const title = document.createElement("div");
+    title.className = "drift-wall__title";
+    title.textContent = item.title || "";
+
+    link.appendChild(image);
+    link.appendChild(title);
+    return link;
+  }
+
+  function buildColumn(columnIndex) {
+    const column = document.createElement("div");
+    column.className = "drift-wall__column";
+
+    const varianceOffset = (columnIndex % 2 === 0 ? 1 : -1) * Math.random() * config.variance * tileStep * 4;
+
+    for (let copy = -2; copy < copies; copy++) {
+      items.forEach((item, itemIndex) => {
+        const tile = createTile(item);
+        const position = (copy * items.length + itemIndex) * tileStep;
+        tile.style.top = `${position}px`;
+
+        const depthOffset = (Math.random() - 0.5) * config.depth * config.variance;
+        tile.style.transform = `translateZ(${depthOffset}px)`;
+        column.appendChild(tile);
+      });
+    }
+
+    column.style.transform = `rotateX(${config.tilt}deg) rotateZ(${config.turn}deg)`;
+    columnsContainer.appendChild(column);
+
+    return {
+      element: column,
+      y: varianceOffset,
+      speed: config.speed * (1 + (Math.random() - 0.5) * config.variance)
+    };
+  }
+
+  function updateColumn(state, delta) {
+    const movement = state.speed * (delta / 1000) * (config.direction === "up" ? -1 : 1);
+    state.y += movement;
+
+    const cycleHeight = items.length * tileStep;
+    if (state.y <= -cycleHeight) state.y += cycleHeight;
+    if (state.y >= cycleHeight) state.y -= cycleHeight;
+
+    state.element.style.transform = `translate3d(0, ${state.y}px, 0) rotateX(${config.tilt}deg) rotateZ(${config.turn}deg)`;
+  }
+
+  for (let i = 0; i < config.columns; i++) {
+    columns.push(buildColumn(i));
+  }
+
+  function updateLayout() {
+    const width = wall.clientWidth;
+    const totalWidth = config.columns * config.tileWidth + (config.columns - 1) * config.gap;
+    const startX = (width - totalWidth) / 2;
+
+    columns.forEach((column, index) => {
+      const x = startX + index * (config.tileWidth + config.gap);
+      column.element.style.left = `${x}px`;
+    });
+  }
+
+  updateLayout();
+  window.addEventListener("resize", updateLayout);
+
+  let mouseX = 0, mouseY = 0, targetMouseX = 0, targetMouseY = 0;
+
+  wall.addEventListener("mousemove", event => {
+    const rect = wall.getBoundingClientRect();
+    targetMouseX = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+    targetMouseY = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+  });
+
+  wall.addEventListener("mouseleave", () => {
+    targetMouseX = 0;
+    targetMouseY = 0;
+  });
+
+  let lastTime = performance.now();
+
+  function animate(now) {
+    const delta = Math.min(now - lastTime, 50);
+    lastTime = now;
+
+    if (!reduceMotion) {
+      mouseX += (targetMouseX - mouseX) * 0.06;
+      mouseY += (targetMouseY - mouseY) * 0.06;
+
+      columns.forEach((state, index) => {
+        updateColumn(state, delta);
+        const direction = index % 2 === 0 ? 1 : -1;
+        state.element.style.marginLeft = `${mouseX * config.parallax * direction * 18}px`;
+        state.element.style.marginTop = `${mouseY * config.parallax * 10}px`;
+      });
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  requestAnimationFrame(animate);
+})();
+
+/* =========================================================
+   CONTACT FORM (front-end only)
+   ========================================================= */
+document.getElementById('contactForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  document.getElementById('formNote').classList.add('show');
+});
+</script>
+
+</body>
+</html>

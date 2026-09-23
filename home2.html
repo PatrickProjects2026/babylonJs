@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mototring Site — Built to your redline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<style>
+
+:root{
+  --bg:#0f1113;
+  --bg-panel:rgba(23,26,29,0.86);
+  --bg-panel-solid:#171a1d;
+  --ink:#ecece4;
+  --muted:#8b8e93;
+  --accent:#ff6a1a;
+  --accent-2:#4fd1e8;
+  --line:#33373c;
+  --danger:#c4341f;
+  --display:'Oswald',sans-serif;
+  --body:'IBM Plex Sans',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--body);
+  overflow-x:hidden;
+}
+::selection{background:var(--accent);color:#14100c;}
+
+/* ---------- background canvas ---------- */
+#renderCanvas{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  outline:none;
+  touch-action:none;
+  z-index:0;
+}
+#canvasVignette{
+  position:fixed;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at center, rgba(15,17,19,0) 40%, rgba(15,17,19,0.85) 100%),
+    linear-gradient(180deg, rgba(15,17,19,0.55) 0%, rgba(15,17,19,0) 18%, rgba(15,17,19,0) 78%, rgba(15,17,19,0.75) 100%);
+}
+#fadeOverlay{
+  position:fixed;
+  inset:0;
+  z-index:2;
+  pointer-events:none;
+  background:var(--bg);
+  opacity:0;
+  transition:opacity .5s ease;
+}
+#fadeOverlay.active{opacity:1;}
+
+/* ---------- loader ---------- */
+#loader{
+  position:fixed;
+  inset:0;
+  z-index:50;
+  background:var(--bg);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:18px;
+  transition:opacity .6s ease, visibility .6s ease;
+}
+#loader.hidden{opacity:0;visibility:hidden;pointer-events:none;}
+.loader-mark{
+  font-family:var(--display);
+  font-size:14px;
+  letter-spacing:.4em;
+  color:var(--muted);
+  text-transform:uppercase;
+}
+.loader-bar{
+  width:220px;
+  height:2px;
+  background:var(--line);
+  position:relative;
+  overflow:hidden;
+}
+.loader-bar span{
+  position:absolute;
+  top:0;left:-40%;
+  width:40%;height:100%;
+  background:var(--accent);
+  animation:loaderSweep 1.1s ease-in-out infinite;
+}
+@keyframes loaderSweep{
+  0%{left:-40%;}
+  50%{left:60%;}
+  100%{left:-40%;}
+}
+
+/* ---------- scroll gauge (right rail) ---------- */
+#gauge{
+  position:fixed;
+  right:clamp(14px,3vw,40px);
+  top:50%;
+  transform:translateY(-50%);
+  z-index:30;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:10px;
+}
+#gauge .track{
+  position:relative;
+  width:2px;
+  height:180px;
+  background:var(--line);
+}
+#gauge .fill{
+  position:absolute;
+  bottom:0;left:0;
+  width:100%;
+  height:0%;
+  background:var(--accent);
+}
+#gauge .stops{
+  position:absolute;
+  inset:0;
+}
+#gauge .stop{
+  position:absolute;
+  left:-3px;
+  width:8px;height:8px;
+  border-radius:50%;
+  background:var(--bg);
+  border:1px solid var(--line);
+  transform:translateY(-50%);
+  cursor:pointer;
+  transition:border-color .25s ease, background .25s ease;
+}
+#gauge .stop.active{background:var(--accent);border-color:var(--accent);}
+#gauge .readout{
+  font-family:var(--mono);
+  font-size:10px;
+  color:var(--muted);
+  letter-spacing:.1em;
+}
+@media (max-width:1200px){#gauge{display:none;}}
+
+/* ---------- sections ---------- */
+main{position:relative;z-index:10;}
+.section{
+  min-height:80vh;   
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:clamp(120px,14vh,180px) clamp(20px,6vw,72px) 80px;
+  position:relative;
+  text-align:center;
+}
+.panel{
+  background:var(--bg-panel);
+  backdrop-filter:blur(6px);
+  border:1px solid var(--line);
+  padding:clamp(28px,4vw,52px);
+  max-width:600px;
+  margin:0 auto;
+  text-align:left;
+}
+.eyebrow{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--accent);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  margin-bottom:18px;
+}
+.panel .eyebrow {
+  justify-content: flex-start;
+}
+.eyebrow::before{
+  content:'';
+  width:24px;height:1px;
+  background:var(--accent);
+}
+h1,h2{
+  font-family:var(--display);
+  text-transform:uppercase;
+  line-height:1.02;
+  margin:0 0 20px;
+  font-weight:600;
+}
+h1{font-size:clamp(46px,8vw,96px);letter-spacing:.01em;}
+h2{font-size:clamp(32px,5vw,54px);}
+p{
+  font-size:16px;
+  line-height:1.65;
+  color:#c9c9c2;
+  margin:0 auto 18px;
+  max-width:52ch;
+}
+.panel p {
+  margin-left: 0;
+  margin-right: 0;
+}
+.muted{color:var(--muted);}
+
+.btn{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  text-decoration:none;
+  padding:14px 26px;
+  border:1px solid var(--line);
+  color:var(--ink);
+  display:inline-block;
+  transition:border-color .25s ease, background .25s ease, color .25s ease;
+}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#14100c;}
+.btn.primary:hover{background:#ff8a45;}
+.btn:not(.primary):hover{border-color:var(--ink);}
+
+/* ---------- products ---------- */
+#products{gap:36px;}
+.fleet-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:12px;
+  margin:0 auto;
+  max-width:900px;
+  width:100%;
+}
+.fleet-card{
+  background:var(--bg-panel);
+  border:1px solid var(--line);
+  padding:16px;
+  cursor:pointer;
+  text-align:left;
+  color:var(--ink);
+  font-family:var(--body);
+  transition:border-color .25s ease, transform .25s ease;
+}
+.fleet-card:hover{transform:translateY(-3px);}
+.fleet-card.active{border-color:var(--accent);}
+.fleet-card .fc-name{
+  font-family:var(--display);
+  font-size:16px;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+  margin-bottom:4px;
+}
+.fleet-card .fc-tag{
+  font-family:var(--mono);
+  font-size:10px;
+  color:var(--muted);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+/* ---------- driftwall gallery section ---------- */
+#gallery {
+  align-items: stretch;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.drift-wall {
+  position: relative;
+  width: 100%;
+  height: 520px; 
+  overflow: hidden;
+  perspective: 1200px;
+  background: rgba(15, 17, 19, 0.4);
+  isolation: isolate;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.drift-wall__viewport {
+  position: absolute;
+  inset: -100px;
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+.drift-wall__columns {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 200px);
+  justify-content: center;
+  gap: 18px;
+  transform-style: preserve-3d;
+}
+.drift-wall__column {
+  position: relative;
+  height: 100%;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.drift-wall__tile {
+  position: absolute;
+  left: 0;
+  width: 200px;
+  height: 132px;
+  display: block;
+  overflow: hidden;
+  text-decoration: none;
+  color: white;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  transform-style: preserve-3d;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.35s ease, border-color 0.35s ease;
+  will-change: transform;
+}
+.drift-wall__tile:hover {
+  z-index: 10;
+  border-color: var(--accent);
+  transform: translateZ(64px) rotateX(-2deg) rotateY(2deg) scale(1.035);
+  filter: brightness(1.15);
+}
+.drift-wall__tile img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.drift-wall__tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 35%, rgba(0, 0, 0, 0.75) 100%);
+  pointer-events: none;
+}
+.drift-wall__title {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 2;
+  font-family: var(--display);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+.drift-wall__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  background: var(--bg);
+  opacity: 0.45;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 18%, transparent 82%, black 100%);
+  mask-image: linear-gradient(to bottom, black 0%, transparent 18%, transparent 82%, black 100%);
+}
+.drift-wall__vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 21;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(15, 17, 19, 0.4) 65%, rgba(15, 17, 19, 0.9) 100%);
+}
+.drift-wall__fade {
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(15, 17, 19, 0.95) 0%, transparent 16%, transparent 84%, rgba(15, 17, 19, 0.95) 100%);
+}
+
+@media (max-width: 900px) {
+  .drift-wall__columns { grid-template-columns: repeat(4, 200px); }
+}
+@media (max-width: 700px) {
+  .drift-wall { height: 420px; }
+  .drift-wall__columns { grid-template-columns: repeat(3, 200px); }
+}
+@media (max-width: 500px) {
+  .drift-wall__columns { grid-template-columns: repeat(2, 200px); }
+}
+
+/* ---------- redesigned multi-column dark footer ---------- */
+footer {
+  position: relative;
+  z-index: 10;
+  background: var(--bg-panel-solid);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--body);
+  padding: 60px clamp(20px, 6vw, 72px) 30px;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.5fr;
+  gap: 40px;
+  max-width: 1200px;
+  margin: 0 auto 50px auto;
+  text-align: left;
+}
+
+.footer-col h4 {
+  font-family: var(--display);
+  font-size: 18px;
+  color: var(--ink);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0 0 16px 0;
+}
+
+.footer-col p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0 0 20px 0;
+  max-width: 32ch;
+}
+
+.footer-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-col ul li {
+  margin-bottom: 10px;
+}
+
+.footer-col ul li a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.25s ease;
+}
+
+.footer-col ul li a:hover {
+  color: var(--accent);
+}
+
+.footer-socials {
+  display: flex;
+  gap: 12px;
+}
+
+.footer-socials a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink);
+  background: var(--bg);
+  text-decoration: none;
+  transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease;
+}
+
+.footer-socials a:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #14100c;
+}
+
+.footer-newsletter input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  margin-bottom: 10px;
+  outline: none;
+  transition: border-color 0.25s ease;
+}
+
+.footer-newsletter input:focus {
+  border-color: var(--accent);
+}
+
+.footer-bottom {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-top: 25px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+.footer-bottom-links {
+  display: flex;
+  gap: 20px;
+}
+
+.footer-bottom-links a {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.footer-bottom-links a:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 900px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+  }
+}
+
+@media (max-width: 560px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* reveal animation base state */
+.reveal{opacity:0;transform:translateY(28px);}
+@media (prefers-reduced-motion:reduce){
+  .reveal{opacity:1;transform:none;}
+  html{scroll-behavior:auto;}
+  .drift-wall__column { animation: none !important; }
+  .drift-wall__tile { transition: none; }
+}
+
+/* =========================================================
+   FLOATING CONFIG RAILS (FIXED LEFT & RIGHT)
+   ========================================================= */
+.floating-config-rail {
+  position: absolute;
+  top: 40%;
+  transform: translateY(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.floating-config-rail.left {
+  left: 20px;
+}
+.floating-config-rail.right {
+  right: 20px;
+}
+.floating-config-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-panel);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  padding: 12px;
+  border-radius: 8px;
+  pointer-events: auto;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  width: 220px;
+}
+.floating-config-group-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  text-transform: uppercase;
+  padding: 4px 4px 8px 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+.fc-item-open {
+  position: relative;
+  width: 100%;
+  height: 40px;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 12px;
+  cursor: pointer;
+  color: var(--ink);
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.fc-item-open svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+.fc-item-open:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #14100c;
+}
+.fc-item-open:hover svg {
+  transform: scale(1.1);
+}
+.fc-item-open .fc-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1200px) {
+  .floating-config-rail { display: none; }
+}
+
+/* ---------- Lazy Popups / Modals Overlay (Glassy / Transparency Style) ---------- */
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(10, 12, 14, 0.7);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s ease;
+  padding: 20px;
+}
+.popup-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+.popup-box {
+  background: var(--bg-panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: min(580px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 32px;
+  position: relative;
+  transform: translateY(30px) scale(0.96);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 25px 60px rgba(0,0,0,0.7);
+}
+.popup-overlay.active .popup-box {
+  transform: translateY(0) scale(1);
+}
+.popup-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  transition: all 0.2s ease;
+}
+.popup-close:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #14100c;
+}
+.popup-title {
+  font-family: var(--display);
+  font-size: 24px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 20px 0;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+.popup-form-group {
+  margin-bottom: 16px;
+  text-align: left;
+}
+.popup-form-group label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.popup-form-group input,
+.popup-form-group textarea,
+.popup-form-group select {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 14px;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.popup-form-group input:focus,
+.popup-form-group textarea:focus {
+  border-color: var(--accent);
+}
+.popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.popup-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.popup-stat-card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 16px;
+  border-radius: 4px;
+}
+.popup-stat-val {
+  font-family: var(--display);
+  font-size: 28px;
+  color: var(--accent);
+}
+.popup-stat-lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.testimonial-item {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 14px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.stars {
+  color: #ffb800;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="loader-mark">Mototring Site — initializing lift</div>
+  <div class="loader-bar"><span></span></div>
+</div>
+
+<canvas id="renderCanvas"></canvas>
+<div id="canvasVignette"></div>
+<div id="fadeOverlay"></div>
+
+<!-- boxed header container -->
+<style>
+  .site-header-container {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    width: min(1200px, calc(100% - 48px));
+    font-family: var(--body);
+    user-select: none;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #0b0b0b;
+  }
+
+  .site-header-topbar {
+    background-color: #ff1a1a;
+    color: #ffffff;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .site-header-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.01em;
+  }
+
+  .site-header-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .site-header-action-link {
+    color: #ffffff;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: opacity 0.2s ease;
+  }
+
+  .site-header-action-link:hover {
+    opacity: 0.85;
+  }
+
+  .site-header-mainbar {
+    background-color: #0b0b0b;
+    border-top: 1px solid #1f2328;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+  }
+
+  .site-header-logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    height: 100%;
+  }
+
+  .site-header-logo img {
+    height: 34px;
+    object-fit: contain;
+    display: block;
+  }
+
+  .site-header-nav {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site-header-nav li a {
+    color: #ffffff;
+    text-decoration: none;
+    font-family: var(--display);
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.2s ease;
+  }
+
+  .site-header-nav li a:hover,
+  .site-header-nav li a.active {
+    color: #ff3b30;
+  }
+
+  @media (max-width: 960px) {
+    .site-header-topbar-left span {
+      display: none;
+    }
+    .site-header-topbar-left::after {
+      content: "Customer Support: 0861 DOT COM (368 266)";
+    }
+    .site-header-nav {
+      gap: 12px;
+    }
+    .site-header-nav li a {
+      font-size: 12px;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .site-header-container {
+      width: calc(100% - 24px);
+      top: 12px;
+      border-radius: 4px;
+    }
+    .site-header-topbar {
+      font-size: 10px;
+      padding: 0 10px;
+      height: 34px;
+    }
+    .site-header-topbar-right {
+      gap: 10px;
+    }
+    .site-header-mainbar {
+      padding: 0 10px;
+      height: 60px;
+    }
+    .site-header-nav {
+      display: none;
+    }
+  }
+</style>
+
+<header class="site-header-container">
+  <div class="site-header-topbar">
+    <div class="site-header-topbar-left">
+      <span>Customer Support: 0861 DOT COM (368 266) | Powered by Mr Brand™</span>
+    </div>
+    <div class="site-header-topbar-right"></div>
+  </div>
+
+  <div class="site-header-mainbar">
+    <a href="home.html" class="site-header-logo">
+      <img src="logo1.png" alt="Motoring Site">
+    </a>
+    <ul class="site-header-nav">
+      <li><a href="https://motoringsite.co.za/" class="active">🏠 HOME</a></li>
+      <li><a href="https://motoringsite.co.za/carshop">🚗 FIND A CAR</a></li>
+      <li><a href="https://motoringsite.co.za/dealers">🏷️ TOP DEALERS</a></li>
+      <li><a href="https://motoringsite.co.za/channel">🎬 VIDEO SHOWCASE</a></li>
+    </ul>
+  </div>
+</header>
+
+<!-- NEW MENU 1: LEFT — Professional 3D Presentation & Vehicle Configuration -->
+<div class="floating-config-rail left" style="width: 250px; max-height: 85vh; overflow-y: auto;">
+  <div class="floating-config-group" style="width: 100%;">
+    <div class="floating-config-group-title">3D Presentation & Config</div>
+    
+    <!-- Spatial Fit & Scale -->
+    <div style="padding: 6px 4px; border-bottom: 1px solid var(--line); margin-bottom: 6px;">
+      <div style="font-family:var(--mono); font-size:10px; color:var(--accent); text-transform:uppercase; margin-bottom:4px;">Spatial Fit & Scale</div>
+      <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--muted); margin-bottom:2px;">
+        <span>Scale</span><span id="scaleVal">1.0x</span>
+      </div>
+      <input type="range" id="carScaleRange" min="0.5" max="1.8" step="0.05" value="1.0" style="width:100%; accent-color:var(--accent); margin-bottom:6px;">
+      <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--muted); margin-bottom:2px;">
+        <span>Ride Height</span><span id="heightVal">0.02m</span>
+      </div>
+      <input type="range" id="carHeightRange" min="-0.2" max="0.3" step="0.01" value="0.02" style="width:100%; accent-color:var(--accent);">
+    </div>
+
+    <!-- Lighting & Environment Presets -->
+    <div style="padding: 6px 4px; border-bottom: 1px solid var(--line); margin-bottom: 6px;">
+      <div style="font-family:var(--mono); font-size:10px; color:var(--accent); text-transform:uppercase; margin-bottom:4px;">Lighting & Environment</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
+        <button class="btn" style="padding:6px; font-size:9px;color:black" onclick="setEnvironment('studio')">Studio</button>
+        <button class="btn" style="padding:6px; font-size:9px;color:black" onclick="setEnvironment('showroom')">Showroom</button>
+        <button class="btn primary" style="padding:6px; font-size:9px;color:black" onclick="setEnvironment('daylight')">Daylight</button>
+        <button class="btn" style="padding:6px; font-size:9px;color:black" onclick="setEnvironment('sunset')">Sunset</button>
+        <button class="btn" style="padding:6px; font-size:9px;color:black; grid-column:span 2;" onclick="setEnvironment('night')">Night Cinematic</button>
+      </div>
+    </div>
+
+    <!-- Headlight Controls Added Here -->
+    <div style="padding: 6px 4px; border-bottom: 1px solid var(--line); margin-bottom: 6px;">
+      <div style="font-family:var(--mono); font-size:10px; color:var(--accent); text-transform:uppercase; margin-bottom:4px;">Headlights Control</div>
+      <div style="display:flex; gap:4px;">
+        <button class="btn primary" style="flex:1; padding:6px; font-size:9px; text-align:center;" onclick="toggleHeadlights(true)">Lights ON</button>
+        <button class="btn" style="flex:1; padding:6px; font-size:9px; color:black; text-align:center;" onclick="toggleHeadlights(false)">Lights OFF</button>
+      </div>
+    </div>
+
+    <!-- Custom Paint & Finish Lab -->
+    <div style="padding: 6px 4px; border-bottom: 1px solid var(--line); margin-bottom: 6px;">
+      <div style="font-family:var(--mono); font-size:10px; color:var(--accent); text-transform:uppercase; margin-bottom:4px;">Paint & Finish Lab</div>
+      <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px;">
+        <input type="color" id="paintColorPicker" value="#ff6a1a" style="width:36px; height:28px; border:1px solid var(--line); background:var(--bg); cursor:pointer; padding:0;">
+        <select id="finishTypeSelect" style="flex:1; background:var(--bg); color:var(--ink); border:1px solid var(--line); font-family:var(--mono); font-size:10px; padding:6px; border-radius:4px;">
+          <option value="gloss">Gloss Finish</option>
+          <option value="matte">Matte Finish</option>
+          <option value="metallic">Metallic Finish</option>
+          <option value="satin">Satin Finish</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Cinematic Camera Presets -->
+    <div style="padding: 6px 4px; border-bottom: 1px solid var(--line); margin-bottom: 6px;">
+      <div style="font-family:var(--mono); font-size:10px; color:var(--accent); text-transform:uppercase; margin-bottom:4px;">Camera Presets</div>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:3px;">
+        <button class="btn" style="padding:5px; font-size:8px;color:black" onclick="setCameraView('front')">Front</button>
+        <button class="btn" style="padding:5px; font-size:8px;color:black" onclick="setCameraView('rear')">Rear</button>
+        <button class="btn" style="padding:5px; font-size:8px;color:black" onclick="setCameraView('side')">Side</button>
+        <button class="btn" style="padding:5px; font-size:8px;color:black" onclick="setCameraView('threeQuarter')">3/4 View</button>
+        <button class="btn" style="padding:5px; font-size:8px;color:black" onclick="setCameraView('top')">Top</button>
+        <button class="btn" style="padding:5px; font-size:8px;color:black" onclick="setCameraView('lowAngle')">Low Angle</button>
+      </div>
+      <button class="btn primary" style="width:100%; margin-top:4px; padding:6px; font-size:9px;" onclick="setCameraView('hero')">Cinematic Hero</button>
+    </div>
+
+    <!-- Interactive Drive / Movement Controls -->
+    <div style="padding: 6px 4px; border-bottom: 1px solid var(--line); margin-bottom: 6px;">
+      <div style="font-family:var(--mono); font-size:10px; color:var(--accent); text-transform:uppercase; margin-bottom:4px;">Drive & Rotation</div>
+      <div style="display:flex; gap:4px; margin-bottom:4px;">
+        <button class="btn" style="flex:1; padding:5px; font-size:9px;color:black" onclick="rotateCar(-0.5)">⟲ Left</button>
+        <button class="btn" style="flex:1; padding:5px; font-size:9px;color:black" onclick="rotateCar(0.5)">Right ⟳</button>
+      </div>
+      <button class="btn" style="width:100%; padding:5px; font-size:9px;color:black" onclick="toggleAutoSpin()">Toggle Spin</button>
+    </div>
+
+    <!-- AR Quick-Export -->
+    <div style="padding: 4px;">
+      <div style="font-family:var(--mono); font-size:10px; color:var(--accent); text-transform:uppercase; margin-bottom:4px;">AR Quick-Export</div>
+      <button class="btn primary" style="width:100%; padding:8px; font-size:10px; text-align:center;" onclick="triggerARExport()">⚡ Export AR Package</button>
+    </div>
+
+  </div>
+</div>
+
+
+
+<!-- FLOATING MENU 2: RIGHT (CAR LISTS MOVED HERE) -->
+<div class="floating-config-rail right">
+  <div class="floating-config-group">
+    <div class="floating-config-group-title">Menu 2 — Control & Config</div>
+    <div class="fc-item-open" data-popup="pop-diagnostics">
+      <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+      <span class="fc-label">Diagnostics</span>
+    </div>
+    <div class="fc-item-open" data-popup="pop-drive-control">
+      <svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.76l.12.34V17z"/></svg>
+      <span class="fc-label">Performance</span>
+    </div>
+    <div class="fc-item-open" data-popup="pop-config-mode">
+      <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19h3.64c1.15.61 2.5 1 3.93 1 4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+      <span class="fc-label">Configuration</span>
+    </div>
+  </div>
+
+  <!-- Car Lists Group Added to Right Rail -->
+  <div class="floating-config-group">
+    <div class="floating-config-group-title">Active Fleet List</div>
+    <button class="fc-item-open active fleet-card" data-file="cars/2023_bmw_m2_g87_coupe.glb" style="padding-left:12px; justify-content:flex-start;">
+      <span class="fc-label">BMW M2 G87 (2023)</span>
+    </button>
+    <button class="fc-item-open fleet-card" data-file="cars/1989 Honda Civic DX Hatchback.glb" style="padding-left:12px; justify-content:flex-start;">
+      <span class="fc-label">Honda Civic DX (1989)</span>
+    </button>
+    <button class="fc-item-open fleet-card" data-file="cars/nissan-skyline-gtr-r33-top-secret-x-hugosilva.glb" style="padding-left:12px; justify-content:flex-start;">
+      <span class="fc-label">Nissan Skyline R33</span>
+    </button>
+    <button class="fc-item-open fleet-card" data-file="cars/2021_ram_1500_trx.glb" style="padding-left:12px; justify-content:flex-start;">
+      <span class="fc-label">RAM 1500 TRX (2021)</span>
+    </button>
+    <button class="fc-item-open fleet-card" data-file="cars/rolls-royce_ghost.glb" style="padding-left:12px; justify-content:flex-start;">
+      <span class="fc-label">Rolls Royce Ghost</span>
+    </button>
+    <button class="fc-item-open fleet-card" data-file="cars/219.glb" style="padding-left:12px; justify-content:flex-start;">
+      <span class="fc-label">BMW 219</span>
+    </button>
+
+    <div style="padding: 4px; display: flex; flex-direction: column; gap: 6px;color:red;">
+      <div style="font-family:var(--mono); font-size:10px; color:var(--accent); text-transform:uppercase; margin-bottom:2px;">Actions</div>
+      <button class="btn primary" style="color:red;width:100%; padding:8px; font-size:10px; text-align:center;" onclick="triggerARExport()">⚡ Export AR Package</button>
+      <button class="btn primary" style="color:red;width:100%; padding:10px; font-size:11px; text-align:center; background:#28a745; border-color:#28a745; color:#ffffff;" onclick="saveConfigAndPlay()">🎮 Play (Launch Racing)</button>
+    </div>
+
+  </div>
+</div>
+
+
+
+
+
+<main>
+  <section id="products" class="section">
+    <div class="fleet-grid reveal" id="fleetGrid" style="display:none;"></div>
+  </section>
+
+  <section id="gallery" class="section" style="min-height: auto; padding-top: 40px; padding-bottom: 0px;">
+    <div class="drift-wall" id="driftWall">
+      <div class="drift-wall__viewport">
+        <div class="drift-wall__columns" id="driftColumns"></div>
+      </div>
+      <div class="drift-wall__overlay"></div>
+      <div class="drift-wall__vignette"></div>
+      <div class="drift-wall__fade"></div>
+    </div>
+  </section>
+</main>
+
+
+<!-- AR Quick-Export & Play -->
+
+
+
+
+<footer>
+  <div class="footer-grid">
+    <div class="footer-col">
+      <img src="https://motoringsite.co.za/images/Motoring2.png" style="width:70%;"/>
+      <p style="text-align:justify;">
+        For the cars that ignite our passion on every highway and byway. For the connections built between enthusiasts, dealers, and everyday drivers. For the journey ahead, where every road leads to a new and exciting horizon.
+      </p>
+    </div>
+    <div class="footer-col">
+      <h4>Navigation</h4>
+      <ul>
+        <li><a href="https://motoringsite.co.za/carshop">Explore cars</a></li>
+        <li><a href="https://motoringsite.co.za/dealers">Meet the dealers</a></li>
+        <li><a href="https://motoringsite.co.za/all_articles">Motoring guides</a></li>
+        <li><a href="https://motoringsite.co.za/channel">Video showcase</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Garage Support</h4>
+      <ul>
+        <li><a href="https://motoringsite.co.za/sell">Sell with us</a></li>
+        <li><a href="https://motoringsite.co.za/advertise">Advertise</a></li>
+        <li><a href="https://motoringsite.co.za/about">About Motoring Site</a></li>
+        <li><a href="https://motoringsite.co.za/contact-us">Contact us </a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Stay Updated</h4>
+      <a href="https://motoringsite.co.za/public/DriveMag/">  
+        <img src="https://motoringsite.co.za/assets/_images/DriveMagazine.jpg" style="width:150px"/>
+      </a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 Mototring Site. All builds bespoke.</span>
+    <div class="footer-bottom-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Security Protocol</a>
+    </div>
+  </div>
+</footer>
+
+<!-- Modals / Popups -->
+<div class="popup-overlay" id="pop-diagnostics">
+  <div class="popup-box">
+    <button class="popup-close">✕</button>
+    <div class="popup-title">Diagnostics & Color Config</div>
+    <div class="popup-form-group"><label>System Ambient Tint</label><input type="color" value="#ff6a1a" style="height:44px;padding:4px;" id="popupAmbientTint"></div>
+    <div class="popup-form-group"><label>Telemetry Log Level</label><select><option>Verbose Debug</option><option>Standard Info</option><option>Errors Only</option></select></div>
+    <div class="popup-actions"><button class="btn primary" onclick="closePopups()">Apply Diagnostics</button></div>
+  </div>
+</div>
+
+<div class="popup-overlay" id="pop-drive-control">
+  <div class="popup-box">
+    <button class="popup-close">✕</button>
+    <div class="popup-title">Drive Controls & Performance</div>
+    <div class="popup-form-group"><label>Suspension Stiffness</label><input type="range" min="1" max="10" value="8"></div>
+    <div class="popup-form-group"><label>Downforce Level</label><input type="range" min="1" max="10" value="7"></div>
+    <div class="popup-actions"><button class="btn primary" onclick="closePopups()">Apply Controls</button></div>
+  </div>
+</div>
+
+<div class="popup-overlay" id="pop-config-mode">
+  <div class="popup-box">
+    <button class="popup-close">✕</button>
+    <div class="popup-title">Configuration Mode</div>
+    <div class="popup-form-group"><label>Environment Theme Preference</label>
+      <select id="popupThemeSelect">
+        <option value="bright">Bright Showroom Mode</option>
+        <option value="dark">Dark Redline Mode</option>
+      </select>
+    </div>
+    <div class="popup-actions"><button class="btn primary" onclick="applyPopupTheme()">Switch Theme</button></div>
+  </div>
+</div>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* =========================================================
+   BABYLON SCENE
+   ========================================================= */
+const canvas = document.getElementById("renderCanvas");
+const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+
+let carChassis = null;
+let carMesh = null;
+let loadedMeshes = [];
+const originalColors = new Map();
+let leftHeadlight = null;
+let rightHeadlight = null;
+let currentFile = "cars/2023_bmw_m2_g87_coupe.glb";
+
+let isDarkMode = false;
+let sceneRef = null;
+let hemiLightRef = null;
+let dirLightRef = null;
+let rimLightRef = null;
+let groundMatRef = null;
+let isAutoSpinning = true;
+
+const excludedKeywords = ["wheel","rim","tire","tyre","brake","caliper","glass","window","windshield","light","lamp","interior","seat","steering","engine","exhaust","mirror","grille","badge","logo"];
+const bodyKeywords = ["body","paint","carbody","chassis","door","hood","trunk","fender","bumper"];
+const containsKeyword = (str, keywords) => {
+  if (!str) return false;
+  const s = str.toLowerCase();
+  return keywords.some(k => s.includes(k));
+};
+
+const cloneAndSeparateMaterials = (meshes) => {
+  const matMap = new Map();
+  meshes.forEach(mesh => {
+    if (mesh.material) {
+      if (!matMap.has(mesh.material)) {
+        const cloned = mesh.material.clone(mesh.material.name + "_unique");
+        matMap.set(mesh.material, cloned);
+        mesh.material = cloned;
+      } else {
+        mesh.material = matMap.get(mesh.material);
+      }
+    }
+  });
+};
+
+const saveOriginalColors = () => {
+  originalColors.clear();
+  loadedMeshes.forEach(mesh => {
+    if (mesh.material) {
+      if (mesh.material.albedoColor) originalColors.set(mesh, mesh.material.albedoColor.clone());
+      else if (mesh.material.diffuseColor) originalColors.set(mesh, mesh.material.diffuseColor.clone());
+    }
+  });
+};
+
+const updateCarColor = (hexColor) => {
+  const color = BABYLON.Color3.FromHexString(hexColor);
+  loadedMeshes.forEach(mesh => {
+    if (!mesh.material) return;
+    const meshName = mesh.name || "";
+    const matName = mesh.material.name || "";
+    const isExcluded = containsKeyword(meshName, excludedKeywords) || containsKeyword(matName, excludedKeywords);
+    const isBodyPart = containsKeyword(meshName, bodyKeywords) || containsKeyword(matName, bodyKeywords);
+    if (!isExcluded || isBodyPart) {
+      if (mesh.material instanceof BABYLON.PBRMaterial) {
+        mesh.material.albedoColor = color;
+      } else if (mesh.material instanceof BABYLON.StandardMaterial) {
+        mesh.material.diffuseColor = color;
+      } else if (mesh.material.subMaterials) {
+        mesh.material.subMaterials.forEach(subMat => {
+          if (!subMat) return;
+          if (!containsKeyword(subMat.name || "", excludedKeywords)) {
+            if (subMat.albedoColor) subMat.albedoColor = color;
+            if (subMat.diffuseColor) subMat.diffuseColor = color;
+          }
+        });
+      }
+    }
+  });
+};
+
+const applyPaintFinish = (hexColor, finishType) => {
+  const color = BABYLON.Color3.FromHexString(hexColor);
+  let roughness = 0.1;
+  let metallic = 0.9;
+  
+  if (finishType === 'matte') {
+    roughness = 0.85;
+    metallic = 0.1;
+  } else if (finishType === 'metallic') {
+    roughness = 0.2;
+    metallic = 1.0;
+  } else if (finishType === 'satin') {
+    roughness = 0.45;
+    metallic = 0.5;
+  }
+
+  loadedMeshes.forEach(mesh => {
+    if (!mesh.material) return;
+    const meshName = mesh.name || "";
+    const matName = mesh.material.name || "";
+    const isExcluded = containsKeyword(meshName, excludedKeywords) || containsKeyword(matName, excludedKeywords);
+    const isBodyPart = containsKeyword(meshName, bodyKeywords) || containsKeyword(matName, bodyKeywords);
+    
+    if (!isExcluded || isBodyPart) {
+      if (mesh.material instanceof BABYLON.PBRMaterial) {
+        mesh.material.albedoColor = color;
+        mesh.material.roughness = roughness;
+        mesh.material.metallic = metallic;
+      } else if (mesh.material instanceof BABYLON.StandardMaterial) {
+        mesh.material.diffuseColor = color;
+      }
+    }
+  });
+};
+
+const setupHeadlights = (scene) => {
+  leftHeadlight = new BABYLON.SpotLight("leftHeadlight", new BABYLON.Vector3(-0.7,0.6,-1.8), new BABYLON.Vector3(0,-0.2,-1), Math.PI/3, 10, scene);
+  rightHeadlight = new BABYLON.SpotLight("rightHeadlight", new BABYLON.Vector3(0.7,0.6,-1.8), new BABYLON.Vector3(0,-0.2,-1), Math.PI/3, 10, scene);
+  leftHeadlight.parent = carChassis;
+  rightHeadlight.parent = carChassis;
+  leftHeadlight.diffuse = new BABYLON.Color3(1,0.95,0.8);
+  rightHeadlight.diffuse = new BABYLON.Color3(1,0.95,0.8);
+  // Default to lights OFF initially
+  leftHeadlight.intensity = 0;
+  rightHeadlight.intensity = 0;
+};
+
+const toggleHeadlights = (turnOn) => {
+  if (!leftHeadlight || !rightHeadlight) return;
+  const targetIntensity = turnOn ? 3.5 : 0;
+
+  gsap.to(leftHeadlight, { 
+    intensity: targetIntensity, 
+    duration: 0.4,
+    // Ensure your scene re-renders on every frame if you aren't using a continuous requestAnimationFrame loop
+    onUpdate: () => {
+      rightHeadlight.intensity = leftHeadlight.intensity; // sync them if needed
+    }
+  });
+};
+
+const setEnvironment = (preset) => {
+  if (!sceneRef) return;
+  if (preset === 'studio') {
+    sceneRef.clearColor = new BABYLON.Color4(0.08, 0.09, 0.1, 1);
+    if (hemiLightRef) { hemiLightRef.intensity = 1.0; hemiLightRef.diffuse = new BABYLON.Color3(1, 1, 1); }
+    if (dirLightRef) { dirLightRef.intensity = 1.5; dirLightRef.diffuse = new BABYLON.Color3(1, 0.95, 0.9); }
+    if (groundMatRef) { groundMatRef.diffuseColor = new BABYLON.Color3(0.06, 0.06, 0.07); }
+  } else if (preset === 'showroom') {
+    sceneRef.clearColor = new BABYLON.Color4(0.9, 0.92, 0.95, 1);
+    if (hemiLightRef) { hemiLightRef.intensity = 1.4; hemiLightRef.diffuse = new BABYLON.Color3(1, 1, 1); }
+    if (dirLightRef) { dirLightRef.intensity = 2.5; dirLightRef.diffuse = new BABYLON.Color3(1, 1, 0.98); }
+    if (groundMatRef) { groundMatRef.diffuseColor = new BABYLON.Color3(0.8, 0.82, 0.85); }
+  } else if (preset === 'daylight') {
+    sceneRef.clearColor = new BABYLON.Color4(0.5, 0.7, 0.9, 1);
+    if (hemiLightRef) { hemiLightRef.intensity = 1.6; hemiLightRef.diffuse = new BABYLON.Color3(0.9, 0.95, 1); }
+    if (dirLightRef) { dirLightRef.intensity = 3.0; dirLightRef.diffuse = new BABYLON.Color3(1, 0.98, 0.9); }
+    if (groundMatRef) { groundMatRef.diffuseColor = new BABYLON.Color3(0.3, 0.35, 0.3); }
+  } else if (preset === 'sunset') {
+    sceneRef.clearColor = new BABYLON.Color4(0.35, 0.15, 0.1, 1);
+    if (hemiLightRef) { hemiLightRef.intensity = 1.1; hemiLightRef.diffuse = new BABYLON.Color3(1, 0.6, 0.4); }
+    if (dirLightRef) { dirLightRef.intensity = 2.2; dirLightRef.diffuse = new BABYLON.Color3(1, 0.4, 0.2); }
+    if (groundMatRef) { groundMatRef.diffuseColor = new BABYLON.Color3(0.15, 0.08, 0.06); }
+  } else if (preset === 'night') {
+    sceneRef.clearColor = new BABYLON.Color4(0.02, 0.02, 0.04, 1);
+    if (hemiLightRef) { hemiLightRef.intensity = 0.4; hemiLightRef.diffuse = new BABYLON.Color3(0.2, 0.4, 0.8); }
+    if (dirLightRef) { dirLightRef.intensity = 0.8; dirLightRef.diffuse = new BABYLON.Color3(0.3, 0.6, 1); }
+    if (groundMatRef) { groundMatRef.diffuseColor = new BABYLON.Color3(0.02, 0.02, 0.03); }
+  }
+};
+
+let scene, camera;
+let ambientSpin = 0;
+
+const createScene = async function () {
+  scene = new BABYLON.Scene(engine);
+  sceneRef = scene;
+
+  // Set Daylight as default view configuration right away
+  scene.clearColor = new BABYLON.Color4(0.5, 0.7, 0.9, 1);
+
+  const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0,1,0), scene);
+  light.intensity = 1.6;
+  light.diffuse = new BABYLON.Color3(0.9, 0.95, 1);
+  hemiLightRef = light;
+
+  const dirLight = new BABYLON.DirectionalLight("dirLight", new BABYLON.Vector3(-1,-2,-1), scene);
+  dirLight.intensity = 3.0;
+  dirLight.diffuse = new BABYLON.Color3(1, 0.98, 0.9);
+  dirLightRef = dirLight;
+
+  const rimLight = new BABYLON.DirectionalLight("rimLight", new BABYLON.Vector3(1,-0.4,1), scene);
+  rimLight.intensity = 0.5;
+  rimLight.diffuse = new BABYLON.Color3(0.5,0.7,1);
+  rimLightRef = rimLight;
+
+  camera = new BABYLON.ArcRotateCamera("camera", Math.PI/2, Math.PI/2.3, 14, BABYLON.Vector3.Zero(), scene);
+  camera.lowerBetaLimit = 0.15;
+  camera.upperBetaLimit = Math.PI/2 - 0.03;
+  camera.lowerRadiusLimit = 6;
+  camera.upperRadiusLimit = 26;
+  camera.inputs.clear();
+
+  const ground = BABYLON.MeshBuilder.CreateDisc("ground", { radius: 40, tessellation: 64 }, scene);
+  ground.rotation.x = Math.PI/2;
+  const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+  groundMat.diffuseColor = new BABYLON.Color3(0.3,0.35,0.3);
+  groundMat.specularColor = new BABYLON.Color3(0.05,0.05,0.05);
+  ground.material = groundMat;
+  ground.receiveShadows = true;
+  groundMatRef = groundMat;
+
+  const loadCar = async (file) => {
+    if (carChassis) carChassis.dispose();
+    carChassis = new BABYLON.TransformNode("carChassis", scene);
+    const result = await BABYLON.SceneLoader.ImportMeshAsync("", "./", file, scene);
+    carMesh = result.meshes[0];
+    carMesh.parent = carChassis;
+    loadedMeshes = result.meshes;
+
+    cloneAndSeparateMaterials(loadedMeshes);
+    saveOriginalColors();
+    setupHeadlights(scene);
+
+    const bounds = carMesh.getHierarchyBoundingVectors();
+    const currentLength = bounds.max.subtract(bounds.min).z;
+    const targetLength = file.includes("bmw") ? 10.9 : 10.0;
+    const ratio = targetLength / (currentLength || 1);
+    carMesh.scaling.setAll(ratio);
+    carMesh.position.y = 0.02;
+    currentFile = file;
+  };
+  window.__loadCar = loadCar;
+
+  scene.onBeforeRenderObservable.add(() => {
+    if (!reduceMotion && isAutoSpinning) ambientSpin += 0.005;
+    camera.alpha = Math.PI/2 + ambientSpin;
+  });
+
+  await loadCar(currentFile);
+  return scene;
+};
+
+createScene().then(() => {
+  engine.runRenderLoop(() => scene.render());
+  document.getElementById('loader').classList.add('hidden');
+});
+window.addEventListener("resize", () => engine.resize());
+
+/* =========================================================
+   FLEET SELECTION LISTENER (RIGHT RAIL CARS)
+   ========================================================= */
+const fadeOverlay = document.getElementById('fadeOverlay');
+
+document.querySelectorAll('.floating-config-rail.right').forEach(rail => {
+  rail.addEventListener('click', async (e) => {
+    const card = e.target.closest('.fleet-card');
+    if (!card) return;
+    const file = card.dataset.file;
+    if (file === currentFile) return;
+
+    rail.querySelectorAll('.fleet-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+
+    fadeOverlay.classList.add('active');
+    await new Promise(r => setTimeout(r, 350));
+    await window.__loadCar(file);
+    fadeOverlay.classList.remove('active');
+  });
+});
+
+/* =========================================================
+   MENU 1 INTERACTIVE CONTROLLERS
+   ========================================================= */
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'popupAmbientTint') {
+    updateCarColor(e.target.value);
+  }
+  if (e.target && e.target.id === 'carScaleRange') {
+    const val = parseFloat(e.target.value);
+    document.getElementById('scaleVal').textContent = val.toFixed(1) + 'x';
+    if (carMesh) {
+      const baseScale = currentFile.includes("bmw") ? (10.9 / (carMesh.getHierarchyBoundingVectors().max.subtract(carMesh.getHierarchyBoundingVectors().min).z || 1)) : 10.0;
+      carMesh.scaling.setAll(baseScale * val);
+    }
+  }
+  if (e.target && e.target.id === 'carHeightRange') {
+    const val = parseFloat(e.target.value);
+    document.getElementById('heightVal').textContent = val.toFixed(2) + 'm';
+    if (carMesh) {
+      carMesh.position.y = val;
+    }
+  }
+  if (e.target && e.target.id === 'paintColorPicker') {
+    applyPaintFinish(e.target.value, document.getElementById('finishTypeSelect')?.value || 'gloss');
+  }
+});
+
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'finishTypeSelect') {
+    const color = document.getElementById('paintColorPicker')?.value || '#ff6a1a';
+    applyPaintFinish(color, e.target.value);
+  }
+});
+
+function setCameraView(view) {
+  if (!camera) return;
+  isAutoSpinning = false;
+  let targetAlpha = camera.alpha;
+  let targetBeta = camera.beta;
+  let targetRadius = camera.radius;
+
+  switch (view) {
+    case 'front':
+      targetAlpha = Math.PI / 2;
+      targetBeta = Math.PI / 2.2;
+      targetRadius = 10;
+      break;
+    case 'rear':
+      targetAlpha = -Math.PI / 2;
+      targetBeta = Math.PI / 2.2;
+      targetRadius = 10;
+      break;
+    case 'side':
+      targetAlpha = 0;
+      targetBeta = Math.PI / 2.2;
+      targetRadius = 12;
+      break;
+    case 'threeQuarter':
+      targetAlpha = Math.PI / 4;
+      targetBeta = Math.PI / 2.5;
+      targetRadius = 11;
+      break;
+    case 'top':
+      targetAlpha = Math.PI / 2;
+      targetBeta = 0.3;
+      targetRadius = 16;
+      break;
+    case 'lowAngle':
+      targetAlpha = Math.PI / 3;
+      targetBeta = Math.PI / 2.05;
+      targetRadius = 9;
+      break;
+    case 'hero':
+      targetAlpha = Math.PI / 1.5;
+      targetBeta = Math.PI / 2.4;
+      targetRadius = 10.5;
+      break;
+  }
+
+  gsap.to(camera, { alpha: targetAlpha, beta: targetBeta, radius: targetRadius, duration: 1.2, ease: "power2.out" });
+}
+
+function rotateCar(deltaAngle) {
+  if (carChassis) {
+    gsap.to(carChassis.rotation, { y: carChassis.rotation.y + deltaAngle, duration: 0.5, ease: "power2.out" });
+  }
+}
+
+function toggleAutoSpin() {
+  isAutoSpinning = !isAutoSpinning;
+}
+
+function triggerARExport() {
+  alert("AR Quick-Package generated successfully! USDZ and GLTF assets prepared for mobile AR deployment.");
+}
+
+
+async function saveConfigAndPlay() {
+  try {
+    // 1. Safely retrieve active car name (Fixed the '->' syntax error)
+    const activeCard = document.querySelector('.fleet-card.active');
+    const carName = activeCard && activeCard.querySelector('.fc-label') 
+      ? activeCard.querySelector('.fc-label').textContent.trim() 
+      : "BMW M2 G87 (2023)";
+
+    // Fallback if currentFile is not globally defined
+    const fileToUse = (typeof currentFile !== 'undefined' && currentFile) ? currentFile : "cars/2023_bmw_m2_g87_coupe.glb";
+
+    // 2. Safely read configuration elements with fallbacks
+    const colorPicker = document.getElementById('paintColorPicker');
+    const finishSelect = document.getElementById('finishTypeSelect');
+    const scaleRange = document.getElementById('carScaleRange');
+    const heightRange = document.getElementById('carHeightRange');
+
+    const color = colorPicker ? colorPicker.value : "#ff6a1a";
+    const finishType = finishSelect ? finishSelect.value : "gloss";
+    const scale = scaleRange ? parseFloat(scaleRange.value) : 1.0;
+    const rideHeight = heightRange ? parseFloat(heightRange.value) : 0.02;
+
+    // Construct configuration object
+    const carConfig = {
+      carName: carName,
+      carFile: fileToUse,
+      color: color,
+      finishType: finishType,
+      scale: isNaN(scale) ? 1.0 : scale,
+      rideHeight: isNaN(rideHeight) ? 0.02 : rideHeight,
+      timestamp: new Date().toISOString()
+    };
+
+    // 3. Save to localStorage for instant cross-page loading in home3.html
+    localStorage.setItem('racingCarConfig', JSON.stringify(carConfig));
+
+    // 4. Send request to backend PHP script to write file directly to project root
+    try {
+      const response = await fetch('save_config.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(carConfig)
+      });
+
+      if (!response.ok) {
+        console.warn("Server save returned non-ok status, relying on localStorage.");
+      }
+    } catch (networkErr) {
+      console.warn("Could not reach backend save_config.php (ensure you are running via a local server like Apache/PHP).", networkErr);
+    }
+
+    // 5. Instantly redirect to home3.html
+    window.location.href = "home3.html";
+
+  } catch (error) {
+    console.error("Error in saveConfigAndPlay:", error);
+    alert("Could not save configuration. Check console for details.");
+  }
+}
+
+
+/* =========================================================
+   MODAL / POPUP CONTROLS
+   ========================================================= */
+function openPopup(popupId) {
+  const popup = document.getElementById(popupId);
+  if (popup) popup.classList.add('active');
+}
+
+function closePopups() {
+  document.querySelectorAll('.popup-overlay').forEach(p => p.classList.remove('active'));
+}
+
+document.querySelectorAll('.fc-item-open[data-popup]').forEach(item => {
+  item.addEventListener('click', () => {
+    const popupId = item.getAttribute('data-popup');
+    openPopup(popupId);
+  });
+});
+
+document.querySelectorAll('.popup-close').forEach(btn => {
+  btn.addEventListener('click', closePopups);
+});
+
+document.querySelectorAll('.popup-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closePopups();
+  });
+});
+
+function applyPopupTheme() {
+  const selectEl = document.getElementById('popupThemeSelect');
+  if (selectEl) {
+    isDarkMode = selectEl.value === 'dark';
+    setEnvironment(isDarkMode ? 'night' : 'showroom');
+  }
+  closePopups();
+}
+
+/* =========================================================
+   DRIFTWALL ANIMATION SCRIPT
+   ========================================================= */
+(function initDriftWall() {
+  const items = [
+    { image: "https://cdn.adslive.com/logos//dealers-Trading-logo.jpg", title: "M2 Track Day", href: "#" },
+    { image: "https://cdn.adslive.com/logos//NorthwestTransportInvestmentsSOCLtdLogo-01.jpg", title: "Civic Dyno Run", href: "#" },
+    { image: "https://cdn.adslive.com/logos//gaboroneresized.jpg", title: "R33 Tuning", href: "#" },
+    { image: "https://cdn.adslive.com/logos/Audi-Centre-Rivonia-1-logo.jpg", title: "TRX Offroad", href: "#" },
+    { image: "https://cdn.adslive.com/logos/BBBAICMenlyn-04.png", title: "TRX Offroad", href: "#" },
+    { image: "https://cdn.adslive.com/logos/Renault_Logo_Positive_1080x1080px(002).png", title: "TRX Offroad", href: "#" },
+    { image: "https://cdn.adslive.com/logos/Bidvest-McCarthy-Nissan-Woodmead-logo.jpg", title: "TRX Offroad", href: "#" },
+    { image: "https://cdn.adslive.com/logos/Changan.jpeg", title: "TRX Offroad", href: "#" },
+    { image: "https://cdn.adslive.com/logos/YYLogo-01.jpg", title: "Ghost Detail", href: "#" }
+  ];
+
+  const config = {
+    columns: 5,
+    tileWidth: 200,
+    tileHeight: 132,
+    gap: 18,
+    tilt: 16,
+    turn: -14,
+    perspective: 1200,
+    depth: 120,
+    speed: 42,
+    direction: "up",
+    variance: 0.45,
+    parallax: 0.6
+  };
+
+  const wall = document.getElementById("driftWall");
+  const columnsContainer = document.getElementById("driftColumns");
+  if (!wall || !columnsContainer) return;
+
+  wall.style.perspective = `${config.perspective}px`;
+
+  const tileStep = config.tileHeight + config.gap;
+  const columnHeight = wall.clientHeight + 400;
+  const copies = Math.ceil(columnHeight / (items.length * tileStep)) + 4;
+  const columns = [];
+
+  function createTile(item) {
+    const link = document.createElement("a");
+    link.className = "drift-wall__tile";
+    link.href = item.href || "#";
+
+    const image = document.createElement("img");
+    image.src = item.image;
+    image.alt = item.title || "";
+    image.loading = "lazy";
+
+    const title = document.createElement("div");
+    title.className = "drift-wall__title";
+    title.textContent = item.title || "";
+
+    link.appendChild(image);
+    link.appendChild(title);
+    return link;
+  }
+
+  function buildColumn(columnIndex) {
+    const column = document.createElement("div");
+    column.className = "drift-wall__column";
+
+    const varianceOffset = (columnIndex % 2 === 0 ? 1 : -1) * Math.random() * config.variance * tileStep * 4;
+
+    for (let copy = -2; copy < copies; copy++) {
+      items.forEach((item, itemIndex) => {
+        const tile = createTile(item);
+        const position = (copy * items.length + itemIndex) * tileStep;
+        tile.style.top = `${position}px`;
+
+        const depthOffset = (Math.random() - 0.5) * config.depth * config.variance;
+        tile.style.transform = `translateZ(${depthOffset}px)`;
+        column.appendChild(tile);
+      });
+    }
+
+    column.style.transform = `rotateX(${config.tilt}deg) rotateZ(${config.turn}deg)`;
+    columnsContainer.appendChild(column);
+
+    return {
+      element: column,
+      y: varianceOffset,
+      speed: config.speed * (1 + (Math.random() - 0.5) * config.variance)
+    };
+  }
+
+  function updateColumn(state, delta) {
+    const movement = state.speed * (delta / 1000) * (config.direction === "up" ? -1 : 1);
+    state.y += movement;
+
+    const cycleHeight = items.length * tileStep;
+    if (state.y <= -cycleHeight) state.y += cycleHeight;
+    if (state.y >= cycleHeight) state.y -= cycleHeight;
+
+    state.element.style.transform = `translate3d(0, ${state.y}px, 0) rotateX(${config.tilt}deg) rotateZ(${config.turn}deg)`;
+  }
+
+  for (let i = 0; i < config.columns; i++) {
+    columns.push(buildColumn(i));
+  }
+
+  function updateLayout() {
+    const width = wall.clientWidth;
+    const totalWidth = config.columns * config.tileWidth + (config.columns - 1) * config.gap;
+    const startX = (width - totalWidth) / 2;
+
+    columns.forEach((column, index) => {
+      const x = startX + index * (config.tileWidth + config.gap);
+      column.element.style.left = `${x}px`;
+    });
+  }
+
+  updateLayout();
+  window.addEventListener("resize", updateLayout);
+
+  let mouseX = 0, mouseY = 0, targetMouseX = 0, targetMouseY = 0;
+
+  wall.addEventListener("mousemove", event => {
+    const rect = wall.getBoundingClientRect();
+    targetMouseX = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+    targetMouseY = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+  });
+
+  wall.addEventListener("mouseleave", () => {
+    targetMouseX = 0;
+    targetMouseY = 0;
+  });
+
+  let lastTime = performance.now();
+
+  function animate(now) {
+    const delta = Math.min(now - lastTime, 50);
+    lastTime = now;
+
+    if (!reduceMotion) {
+      mouseX += (targetMouseX - mouseX) * 0.06;
+      mouseY += (targetMouseY - mouseY) * 0.06;
+
+      columns.forEach((state, index) => {
+        updateColumn(state, delta);
+        const direction = index % 2 === 0 ? 1 : -1;
+        state.element.style.marginLeft = `${mouseX * config.parallax * direction * 18}px`;
+        state.element.style.marginTop = `${mouseY * config.parallax * 10}px`;
+      });
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  requestAnimationFrame(animate);
+})();
+</script>
+
+</body>
+</html>
